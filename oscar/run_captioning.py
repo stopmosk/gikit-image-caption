@@ -536,8 +536,13 @@ def train(args, train_dataloader, val_dataset, model, tokenizer):
                 batch_score = compute_score_with_logits(logits, masked_ids)
                 batch_acc = torch.sum(batch_score.float()) / torch.sum(inputs['masked_pos'])
             else:
-                loss = scst_train_iter(args, train_dataloader, model, scst_criterion, img_keys, batch, tokenizer)
-                batch_acc = scst_criterion.get_score()
+                if args.fp16:
+                    with torch.cuda.amp.autocast():
+                        loss = scst_train_iter(args, train_dataloader, model, scst_criterion, img_keys, batch, tokenizer)
+                        batch_acc = scst_criterion.get_score()
+                else:
+                    loss = scst_train_iter(args, train_dataloader, model, scst_criterion, img_keys, batch, tokenizer)
+                    batch_acc = scst_criterion.get_score()
 
             if args.gradient_accumulation_steps > 1:
                 loss = loss / args.gradient_accumulation_steps
