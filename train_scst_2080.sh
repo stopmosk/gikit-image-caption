@@ -1,0 +1,17 @@
+python oscar/run_captioning.py \
+--model_name_or_path=../output/coco_base_xe/checkpoint-60-480000 \
+--data_dir=../datasets/coco_caption \
+--do_train \
+--evaluate_during_training \
+--do_lower_case \
+--add_od_labels \
+--learning_rate=0.000003 \
+--per_gpu_train_batch_size=10 \
+--num_train_epochs=75 \
+--tie_weights \
+--freeze_embedding \
+--scst \
+--logging_steps=100 \
+--save_steps=2000 \
+--output_dir=../output/scst/ \
+--fp16
