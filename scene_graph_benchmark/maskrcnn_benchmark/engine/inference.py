@@ -254,8 +254,9 @@ def convert_predi_to_tsv_oscar(predictions, dataset, output_folder, data_subset,
             features = prediction.get_field('box_features').numpy()  # [n, 2048]
 
             # Add positional info
-            features_pos = np.zeros((len(features), 2048 + 6))
+            features_pos = np.zeros((len(features), 2048 + 6), dtype=np.float32)
             features_pos[:, :-6] = features
+            assert features.dtype == features_pos.dtype
 
             for i, box in enumerate(boxes):
                 # box: [x1, y1, x2, y2]
