@@ -262,7 +262,7 @@ def convert_predi_to_tsv_oscar(predictions, dataset, output_folder, data_subset,
                 w, h = box[2] - box[0], box[3] - box[1]
                 features_pos[i, -6:] = np.array(box + [w, h])
 
-            # Unsqueeze
+            # Unsqueeze #
             all_features = features_pos.reshape(-1)
 
             cur_d = {
