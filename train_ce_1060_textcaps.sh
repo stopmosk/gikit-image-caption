@@ -20,6 +20,6 @@ python oscar/run_captioning.py \
 --label_smoothing=0.1 \
 --drop_worst_ratio=0.2 \
 --drop_worst_after=20000 \
---logging_steps=100 \
+--logging_steps=20 \
 --save_steps=2000 \
 --output_dir=../output/txtcps_base_xe1/ 

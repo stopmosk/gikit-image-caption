@@ -673,7 +673,7 @@ class BertForImageCaptioning(CaptionPreTrainedModel):
             # Calculate loss
             masked_loss = self.loss(class_logits.float(), masked_ids)
             outputs = (masked_loss, class_logits,) + outputs[2:]  # (loss, tensor(n, vocab_size))  # what is outputs[2:]??? - empty
-            print()
+            # print()
         else:
             sequence_output = outputs[0][:, :input_ids.shape[-1], :]  # (1, 0:70, 768)
             class_logits = self.cls(sequence_output)
@@ -793,8 +793,8 @@ class BertForImageCaptioning(CaptionPreTrainedModel):
                  bad_ending_ids=None,):
         """ Generates captions given image features
         """
-        print('GENERATE')
-        input('PRESS ANY KEY:')
+        # print('GENERATE')
+        # input('PRESS ANY KEY:')
 
         assert is_decode
         batch_size = img_feats.shape[0]

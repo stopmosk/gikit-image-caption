@@ -528,8 +528,8 @@ def train(args, train_dataloader, val_dataset, model, tokenizer):
                 else:
                     outputs = model(**inputs)
                     loss, logits = outputs[:2]
-                print(outputs)
-                input('PRESS ANY KEY:')
+                # print(outputs)
+                # input('PRESS ANY KEY:')
 
                 masked_ids = inputs['masked_ids']
                 masked_ids = masked_ids[masked_ids != 0]
@@ -664,8 +664,8 @@ def scst_train_iter(args, train_dataloader, model, scst_criterion, img_keys, bat
     assert sample_logprobs.requires_grad is True
     assert sample_res_raw.requires_grad is False
     sample_res = _ids_to_captions(sample_res_raw)
-    print(sample_res)
-    input('PRESS ANY KEY_SCST:')
+    # print(sample_res)
+    # input('PRESS ANY KEY_SCST:')
     gt_res = [train_dataloader.dataset.get_captions_by_key(k) for k in img_keys]
     loss = scst_criterion(gt_res, greedy_res, sample_res, sample_logprobs)
     return loss
