@@ -179,10 +179,13 @@ class CaptionTSVDataset(Dataset):
         print(caption)
         print(od_labels[:80])
         print(ocr_labels)
+        input('PRESS CTRL+C:')
         # print('FEAT x1y1x2y2wh:', features[0, -6:])
         # print('LABELrand:', od_labels.split(' ')[0])
 
-        example = self.tensorizer.tensorize_example_v1(caption, features, text_b=od_labels, text_c=ocr_labels)
+        example = self.tensorizer.tensorize_example_v1(
+            text_a=caption, img_feat=features, text_b=od_labels, text_c=ocr_labels
+        )
         return img_key, example
 
     def __len__(self):
@@ -269,39 +272,61 @@ class CaptionTensorizer(object):
         )
 
     def tensorize_example_v1(self, text_a, img_feat, text_b=None, text_c=None,
-                          cls_token_segment_id=0, pad_token_segment_id=0,
-                          sequence_a_segment_id=0, sequence_b_segment_id=1):
+                             cls_token_segment_id=0, pad_token_segment_id=0,
+                             sequence_a_segment_id=0,  sequence_c_segment_id=1, sequence_b_segment_id=1):
         # v1: sentence > ocr > od > img_feats
+        # v1:    30    >  10 > 30 >    50
+        # text_a - caption
+        # text_c - ocr_labels
+        # text_b - od_labels
+        # a > c > b > f
+
+        max_cap_len = self.max_seq_a_len - self.max_ocr_seq_length  # 40-10=30
 
         if self.is_train:
-            tokens_a = self.tokenizer.tokenize(text_a)
+            tokens_a = self.tokenizer.tokenize(text_a)  # All tokens
         else:
             # fake tokens to generate masks
-            tokens_a = [self.tokenizer.mask_token] * (self.max_seq_a_len - 2)
-        if len(tokens_a) > self.max_seq_a_len - 2:
-            tokens_a = tokens_a[:(self.max_seq_a_len - 2)]
+            tokens_a = [self.tokenizer.mask_token] * (max_cap_len - 2)  # [MASK] * 28
 
-        tokens = [self.tokenizer.cls_token] + tokens_a + [self.tokenizer.sep_token]
-        segment_ids = [cls_token_segment_id] + [sequence_a_segment_id] * (len(tokens) - 1)
-        seq_a_len = len(tokens)
-        if text_b:
+        if len(tokens_a) > max_cap_len - 2:
+            tokens_a = tokens_a[:(max_cap_len - 2)]  # Keep only first 28 tokens
+
+        tokens = [self.tokenizer.cls_token] + tokens_a + [self.tokenizer.sep_token]  # [[CLS], Senence, [SEP]]  <= 30
+        segment_ids = [cls_token_segment_id] + [sequence_a_segment_id] * (len(tokens) - 1)  # [0, 0, ..., 0] <= 30
+        seq_a_len = len(tokens)  # <= 30
+
+        if text_c or text_b:
             # pad text_a to keep it in fixed length for better inference.
-            padding_a_len = self.max_seq_a_len - seq_a_len
-            tokens += [self.tokenizer.pad_token] * padding_a_len
-            segment_ids += ([pad_token_segment_id] * padding_a_len)
+            padding_a_len = max_cap_len - seq_a_len  # pad to 30
+            tokens += [self.tokenizer.pad_token] * padding_a_len  # [[CLS], Sentence, [SEP], [PAD]*n] = 30
+            segment_ids += ([pad_token_segment_id] * padding_a_len)  # [0, 0, ..., 0] = 30
 
-            tokens_b = self.tokenizer.tokenize(text_b)
-            if len(tokens_b) > self.max_seq_len - len(tokens) - 1:
-                tokens_b = tokens_b[: (self.max_seq_len - len(tokens) - 1)]
-            tokens += tokens_b + [self.tokenizer.sep_token]
-            segment_ids += [sequence_b_segment_id] * (len(tokens_b) + 1)
+        if text_c:
+            tokens_c = self.tokenizer.tokenize(text_c)  # Tokenize OCR labels string
+            # TODO: tokenizer for text not in dictionary?
+            # if len(tokens_b) > 70 - 30 - 10 - 1 = 29
+            if len(tokens_c) > self.max_ocr_seq_length:
+                tokens_c = tokens_c[: self.max_ocr_seq_length]  # [ocr_tokens] = 10
+            tokens += tokens_c  # [[CLS], Sentence, [SEP]] + [ocr_tokens] <= 30 + 10
+            padding_c_len = self.max_ocr_seq_length - len(tokens_c)  # pad to 10
+            tokens += [self.tokenizer.pad_token] * padding_c_len  # [[CLS], Sentence, [SEP], [PAD]s, OCR, [PAD]s] = 40
+            segment_ids += [sequence_c_segment_id] * len(tokens_c)  # [0, 0, ..., 0, 1, 1, ...,  1] = 30 + 10 = 40
 
-        seq_len = len(tokens)
+        if text_b:
+            tokens_b = self.tokenizer.tokenize(text_b)  # Tokenize od labels string
+            # if len(tokens_b) > 70 - 30 - 10 - 1 = 29
+            if len(tokens_b) > self.max_seq_len - len(tokens) - self.max_ocr_seq_length - 1:
+                tokens_b = tokens_b[: (self.max_seq_len - len(tokens) - 1)]  # [od_tokens] = 29
+            tokens += tokens_b + [self.tokenizer.sep_token]  # [[CLS], Sentence, [SEP], [PAD]s, OCR, [PAD]s] + [od_tokens] + [SEP] <= 40 + 30 = 70
+            segment_ids += [sequence_b_segment_id] * (len(tokens_b) + 1)  # [0, 0, ..., 0, 1, 1, ...,  1] <= 40 + 30 = 70
+
+        seq_len = len(tokens)  # <= 70
         masked_ids = None
         if self.is_train:
             masked_pos = torch.zeros(self.max_seq_len, dtype=torch.int)
             # randomly mask words for prediction, ignore [CLS]
-            candidate_masked_idx = list(range(1, seq_a_len))  # only mask text_a
+            candidate_masked_idx = list(range(1, seq_a_len))  # only mask text_a  <= 30
             random.shuffle(candidate_masked_idx)
             num_masked = min(max(round(self.mask_prob * seq_a_len), 1), self.max_masked_tokens)
             num_masked = int(num_masked)
@@ -331,39 +356,46 @@ class CaptionTensorizer(object):
             masked_pos = torch.ones(self.max_seq_len, dtype=torch.int)
 
         # pad on the right for image captioning
-        padding_len = self.max_seq_len - seq_len
-        tokens = tokens + ([self.tokenizer.pad_token] * padding_len)
-        segment_ids += ([pad_token_segment_id] * padding_len)
+        padding_len = self.max_seq_len - seq_len  # <= 70
+        tokens = tokens + ([self.tokenizer.pad_token] * padding_len) # [[CLS], Sentence, [SEP], [PAD]s, OCR, [PAD]s] + [od_tokens] + [SEP] + [PAD]s] = 40 + 30 = 70
+        segment_ids += ([pad_token_segment_id] * padding_len)  # [0, 0, ..., 0, 1, 1, ...,  1] = 70
         input_ids = self.tokenizer.convert_tokens_to_ids(tokens)
 
         # image features
         img_len = img_feat.shape[0]
         if img_len > self.max_img_seq_len:
-            img_feat = img_feat[0: self.max_img_seq_len, ]
+            img_feat = img_feat[0: self.max_img_seq_len, ]  # Keep only first 50
             img_len = img_feat.shape[0]
         else:
             padding_matrix = torch.zeros((self.max_img_seq_len - img_len, img_feat.shape[1]))
             img_feat = torch.cat((img_feat, padding_matrix), 0)
 
         # prepare attention mask:
-        # note that there is no attention from caption to image
+        # note that there is no attention from caption to image (??? WUT ???)
         # because otherwise it will violate the triangle attention
         # for caption as caption will have full attention on image.
-        max_len = self.max_seq_len + self.max_img_seq_len
-        attention_mask = torch.zeros((max_len, max_len), dtype=torch.long)
-        # C: caption, L: label, R: image region
-        c_start, c_end = 0, seq_a_len
-        l_start, l_end = self.max_seq_a_len, seq_len
-        r_start, r_end = self.max_seq_len, self.max_seq_len + img_len
+        max_len = self.max_seq_len + self.max_img_seq_len  # 70 + 50 = 120
+        attention_mask = torch.zeros((max_len, max_len), dtype=torch.long)  # 120x120
+        # C: caption, O: ocr, L: label, R: image region
+        c_start, c_end = 0, seq_a_len  # 0, 30
+        o_start, o_end = max_cap_len, self.max_seq_a_len  # 30, 40
+        l_start, l_end = self.max_seq_a_len, seq_len  # 40, 70
+        r_start, r_end = self.max_seq_len, self.max_seq_len + img_len  # 70, 120
         # triangle mask for caption to caption
         attention_mask[c_start: c_end, c_start: c_end].copy_(self._triangle_mask[0: seq_a_len, 0: seq_a_len])
-        # full attention for L-L, R-R
+        # full attention for O-O, L-L, R-R
+        attention_mask[o_start: o_end, o_start: o_end] = 1
         attention_mask[l_start: l_end, l_start: l_end] = 1
         attention_mask[r_start: r_end, r_start: r_end] = 1
-        # full attention for C-L, C-R
+        # full attention for C-O, C-L, C-R
+        attention_mask[c_start: c_end, o_start: o_end] = 1
         attention_mask[c_start: c_end, l_start: l_end] = 1
         attention_mask[c_start: c_end, r_start: r_end] = 1
-        # full attention for L-R:
+        # full attention for O-L & L-O; O-R & R-O; L-R & R-L:
+        attention_mask[o_start: o_end, l_start: l_end] = 1
+        attention_mask[l_start: l_end, o_start: o_end] = 1
+        attention_mask[o_start: o_end, r_start: r_end] = 1
+        attention_mask[r_start: r_end, o_start: o_end] = 1
         attention_mask[l_start: l_end, r_start: r_end] = 1
         attention_mask[r_start: r_end, l_start: l_end] = 1
 
