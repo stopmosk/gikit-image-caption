@@ -8,6 +8,7 @@ python oscar/run_captioning.py \
 --model_name_or_path=../pretrained_models/image_captioning/pretrained_base/checkpoint-2000000 \
 --do_lower_case \
 --add_od_labels \
+--add_ocr_labels \
 --learning_rate=0.00003 \
 --per_gpu_train_batch_size=16 \
 --per_gpu_eval_batch_size=24 \

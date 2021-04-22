@@ -77,10 +77,13 @@ class CaptionTSVDataset(Dataset):
         if self.caption_file and op.isfile(self.caption_file):
             with open(self.caption_file, 'r') as f:
                 self.captions = json.load(f)
-        self.ocr_blocks = []
+        self.ocr_blocks = {}
         if self.ocr_file and op.isfile(self.ocr_file):
+            ob_list = []
             with open(self.ocr_file, 'r') as f:
-                self.ocr_blocks = json.load(f)
+                ob_list = json.load(f)
+            self.ocr_blocks = {el['image_id']: el['data'] for el in ob_list}
+
 
         self.tokenizer = tokenizer
         self.tensorizer = CaptionTensorizer(
@@ -144,10 +147,10 @@ class CaptionTSVDataset(Dataset):
             return img_cap_pair['caption']
         return ''
 
-    def get_ocr_labels(self, img_idx):
+    def get_ocr_labels(self, img_key):
         ocr_labels = None
         if self.add_ocr_labels:
-            img_ocr_blocks = self.ocr_blocks[img_idx]['data']  # list of [box, text, conf]
+            img_ocr_blocks = self.ocr_blocks[img_key] # list of [box, text, conf]
             # Get only concatenated text without any processing
             # TODO: processing of OCR blocks
             ocr_labels = ' '.join([b[1] for b in img_ocr_blocks])
@@ -173,13 +176,13 @@ class CaptionTSVDataset(Dataset):
         features = self.get_image_features(img_idx)
         caption = self.get_caption(idx)
         od_labels = self.get_od_labels(img_idx)
-        ocr_labels = self.get_ocr_labels(img_idx)
-        print()
-        print(img_key)
-        print(caption)
-        print(od_labels[:80])
-        print(ocr_labels)
-        input('PRESS CTRL+C:')
+        ocr_labels = self.get_ocr_labels(self.get_image_key(idx))
+        # print()
+        # print(img_key)
+        # print(caption)
+        # print(od_labels[:80])
+        # print(ocr_labels)
+
         # print('FEAT x1y1x2y2wh:', features[0, -6:])
         # print('LABELrand:', od_labels.split(' ')[0])
 
@@ -311,7 +314,7 @@ class CaptionTensorizer(object):
             tokens += tokens_c  # [[CLS], Sentence, [SEP]] + [ocr_tokens] <= 30 + 10
             padding_c_len = self.max_ocr_seq_length - len(tokens_c)  # pad to 10
             tokens += [self.tokenizer.pad_token] * padding_c_len  # [[CLS], Sentence, [SEP], [PAD]s, OCR, [PAD]s] = 40
-            segment_ids += [sequence_c_segment_id] * len(tokens_c)  # [0, 0, ..., 0, 1, 1, ...,  1] = 30 + 10 = 40
+            segment_ids += [sequence_c_segment_id] * self.max_ocr_seq_length  # [0, 0, ..., 0, 1, 1, ...,  1] = 30 + 10 = 40
 
         if text_b:
             tokens_b = self.tokenizer.tokenize(text_b)  # Tokenize od labels string
@@ -1073,7 +1076,7 @@ def main():
 
     # OCR
     parser.add_argument('--add_ocr_labels', default=False, action='store_true', help='Whether to add OCR labels or not')
-    parser.add_argument('--max_oscr_seq_length', default=10, type=int, help='The maximum sequence length for OCR caption.')
+    parser.add_argument('--max_ocr_seq_length', default=10, type=int, help='The maximum sequence length for OCR caption.')
 
     parser.add_argument('--tokenizer_name', default='', type=str, help='Pretrained tokenizer name or path if not the same as model_name.')
     parser.add_argument('--do_lower_case', action='store_true', help='Set this flag if you are using an uncased model.')
