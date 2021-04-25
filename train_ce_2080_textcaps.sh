@@ -5,16 +5,16 @@ python oscar/run_captioning.py \
 --do_train \
 --evaluate_during_training \
 --data_dir=../datasets/textcaps \
---model_name_or_path=../pretrained_models/image_captioning/pretrained_base/checkpoint-2000000 \
+--model_name_or_path=../output/scst/checkpoint-31-896000 \
 --do_lower_case \
 --add_od_labels \
 --add_ocr_labels \
---learning_rate=0.00005 \
---per_gpu_train_batch_size=48 \
---per_gpu_eval_batch_size=64 \
+--learning_rate=0.00001 \
+--per_gpu_train_batch_size=60 \
+--per_gpu_eval_batch_size=100 \
 --gradient_accumulation_steps=1 \
 --num_train_epochs=80 \
---num_workers=4 \
+--num_workers=6 \
 --warmup_steps=2000 \
 --tie_weights \
 --freeze_embedding \
@@ -24,3 +24,4 @@ python oscar/run_captioning.py \
 --logging_steps=100 \
 --save_steps=2000 \
 --output_dir=../output/txtcps_base_xe/ \
+--fp16
