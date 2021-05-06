@@ -146,7 +146,7 @@ class BertImgModelOCR(BertPreTrainedModel):
     """ Expand from BertModel to handle image region features as input
     """
     def __init__(self, config):
-        super(BertImgModel, self).__init__(config)
+        super(BertImgModelOCR, self).__init__(config)
         self.embeddings = BertEmbeddings(config)
         self.encoder = CaptionBertEncoder(config)
         self.pooler = BertPooler(config)   # tanh(Linear(bert_first_out_token))
@@ -155,7 +155,7 @@ class BertImgModelOCR(BertPreTrainedModel):
         self.ocr_embedding = nn.Linear(self.ocr_dim, self.config.hidden_size, bias=True)  # stopmosk
 
         self.img_dim = config.img_feature_dim
-        logger.info(f'BertImgModel Image Dimension: {self.img_dim}')
+        logger.info(f'BertImgModelOCR Image Dimension: {self.img_dim}')
         self.img_feature_type = config.img_feature_type
         self.use_img_layernorm = config.use_img_layernorm if hasattr(config, 'use_img_layernorm') else None
 
@@ -219,9 +219,10 @@ class BertImgModelOCR(BertPreTrainedModel):
                 head_mask = head_mask.unsqueeze(0).unsqueeze(0).unsqueeze(-1).unsqueeze(-1)
                 head_mask = head_mask.expand(self.config.num_hidden_layers, -1, -1, -1, -1)
             elif head_mask.dim() == 2:
-                head_mask = head_mask.unsqueeze(1).unsqueeze(-1).unsqueeze(-1)  # We can specify head_mask for each layer
+                # We can specify head_mask for each layer
+                head_mask = head_mask.unsqueeze(1).unsqueeze(-1).unsqueeze(-1)
             # switch to float if needed + fp16 compatibility
-            head_mask = head_mask.to(dtype=next(self.parameters()).dtype) # switch to fload if need + fp16 compatibility
+            head_mask = head_mask.to(dtype=next(self.parameters()).dtype)
         else:
             head_mask = [None] * self.config.num_hidden_layers
 
@@ -231,6 +232,7 @@ class BertImgModelOCR(BertPreTrainedModel):
 
         # ocr_embedding_output = self.ocr_embedding(ocr_feats)
 
+        # Add image region features
         if img_feats is not None:
             # frcnn features
             img_embedding_output = self.img_embedding(img_feats)
@@ -241,6 +243,7 @@ class BertImgModelOCR(BertPreTrainedModel):
             # concatenate two embeddings
             embedding_output = torch.cat((embedding_output, img_embedding_output), 1)
 
+        # Run BERT
         encoder_outputs = self.encoder(
             embedding_output,
             extended_attention_mask,
@@ -544,9 +547,10 @@ class ImageBertForMultipleChoice(BertPreTrainedModel):
             outputs = (loss,) + outputs
         return outputs
 
-""" Oscar for Multiple Choice """
+
 class OscarForMultipleChoice(BertPreTrainedModel):
     r"""
+    Oscar for Multiple Choice
     Inputs:
         **input_ids**: ``torch.LongTensor`` of shape ``(batch_size, num_choices, sequence_length)``:
             Indices of input sequence tokens in the vocabulary.

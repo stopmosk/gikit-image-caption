@@ -84,7 +84,6 @@ class CaptionTSVDataset(Dataset):
                 ob_list = json.load(f)
             self.ocr_blocks = {el['image_id']: el['data'] for el in ob_list}
 
-
         self.tokenizer = tokenizer
         self.tensorizer = CaptionTensorizer(
             self.tokenizer, max_img_seq_length, max_seq_length, max_seq_a_length, max_ocr_seq_length,
