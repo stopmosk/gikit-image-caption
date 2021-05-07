@@ -151,9 +151,22 @@ class CaptionTSVDataset(Dataset):
         if self.add_ocr_labels:
             img_ocr_blocks = self.ocr_blocks[img_key]  # list of [box, text, conf]
             # Get only concatenated text without any processing
-            # TODO: processing of OCR blocks
+            # TODO: processing of OCR blocks: boxes, conf
             ocr_labels = ' '.join([b[1] for b in img_ocr_blocks])
         return ocr_labels
+
+    def get_ocr_boxes(self, img_key):
+        ocr_boxes = None
+        if self.add_ocr_labels:
+            img_ocr_blocks = self.ocr_blocks[img_key]  # list of [box, text, conf]
+            ocr_boxes = []
+            for block in img_ocr_blocks:
+                x1, y1, x2, y2 = block[0]
+                w, h = x2 - x1, y2 - y1
+                # Make extended bbox with width and height
+                ocr_boxes.append([x1, y1, x2, y2, w, h])
+            ocr_boxes = np.array(ocr_boxes)  # CHECK?
+        return ocr_boxes
 
     def get_od_labels(self, img_idx):
         od_labels = None
@@ -176,6 +189,7 @@ class CaptionTSVDataset(Dataset):
         caption = self.get_caption(idx)
         od_labels = self.get_od_labels(img_idx)
         ocr_labels = self.get_ocr_labels(self.get_image_key(idx))
+        ocr_boxes = self.get_ocr_boxes(self.get_image_key(idx))
         # print()
         # print(img_key)
         # print(caption)
@@ -186,7 +200,7 @@ class CaptionTSVDataset(Dataset):
         # print('LABELrand:', od_labels.split(' ')[0])
 
         example = self.tensorizer.tensorize_example_v1(
-            text_a=caption, img_feat=features, text_b=od_labels, text_c=ocr_labels
+            text_a=caption, img_feat=features, text_b=od_labels, text_c=ocr_labels,  # text_c_pos=ocr_boxes,
         )
         return img_key, example
 
@@ -553,7 +567,7 @@ class CaptionTensorizerOCR(object):
         )
 
     def tensorize_example_v2(self, text_a, img_feat, text_b=None, text_c=None,
-                             cls_token_segment_id=0, pad_token_segment_id=0,
+                             cls_token_segment_id=0, pad_token_segment_id=0, text_c_pos=None,
                              sequence_a_segment_id=0, sequence_b_segment_id=1, sequence_c_segment_id=2):
         # v2: sentence > od > img_feats > ocr
         # v1:    40    > 30 >    50     > 50
@@ -689,11 +703,12 @@ class CaptionTensorizerOCR(object):
         # TODO: input_ocr_ids should work with no OCR too
         input_ocr_ids = torch.tensor(input_ocr_ids, dtype=torch.long)
         segment_ids = torch.tensor(segment_ids, dtype=torch.long)
+        input_ocr_posits = torch.tensor(text_c_pos, dtype=torch.float32)  # Convert to float from int
 
         if self.is_train:
             masked_ids = torch.tensor(masked_ids, dtype=torch.long)
-            return input_ids, attention_mask, segment_ids, img_feat, masked_pos, masked_ids, input_ocr_ids
-        return input_ids, attention_mask, segment_ids, img_feat, masked_pos, input_ocr_ids
+            return input_ids, attention_mask, segment_ids, img_feat, masked_pos, masked_ids, input_ocr_ids, input_ocr_posits
+        return input_ids, attention_mask, segment_ids, img_feat, masked_pos, input_ocr_ids, input_ocr_posits
 
 
 def build_dataset(yaml_file, tokenizer, args, is_train=True):
@@ -856,7 +871,8 @@ def train(args, train_dataloader, val_dataset, model, tokenizer):
                 model.train()
                 inputs = {
                     'input_ids': batch[0], 'attention_mask': batch[1], 'token_type_ids': batch[2],
-                    'img_feats': batch[3], 'masked_pos': batch[4], 'masked_ids': batch[5], 'input_ocr_ids': batch[6],
+                    'img_feats': batch[3], 'masked_pos': batch[4], 'masked_ids': batch[5],
+                    'input_ocr_ids': batch[6], 'input_ocr_posits': batch[7],
                 }
 
                 # *** RUN MODEL *** #
@@ -1119,8 +1135,10 @@ def test(args, test_dataloader, model, tokenizer, predict_file):
                     'img_feats': batch[3],
                     'masked_pos': batch[4],
                     'input_ocr_ids': batch[5],
+                    'input_ocr_posits': batch[6],
                 }
                 if args.use_cbs:
+                    raise NotImplementedError
                     inputs.update({
                         'fsm': batch[5],
                         'num_constraints': batch[6],

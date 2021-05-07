@@ -181,7 +181,7 @@ class BertImgModelOCR(BertPreTrainedModel):
         for layer, heads in heads_to_prune.items():
             self.encoder.layer[layer].attention.prune_heads(heads)
 
-    def forward(self, input_ids, input_ocr_ids=None, img_feats=None, token_type_ids=None, attention_mask=None,
+    def forward(self, input_ids, input_ocr_ids=None, input_ocr_posits=None, img_feats=None, token_type_ids=None, attention_mask=None,
                 position_ids=None, head_mask=None, encoder_history_states=None):
         if attention_mask is None:
             attention_mask = torch.ones_like(input_ids)
@@ -247,9 +247,10 @@ class BertImgModelOCR(BertPreTrainedModel):
             ocr_fake_position_ids = ocr_fake_position_ids.unsqueeze(0).expand_as(input_ocr_ids)
             ocr_embedding_output = self.embeddings(input_ocr_ids, position_ids=ocr_fake_position_ids, token_type_ids=None)
             # TODO: pos enc & linear
-            # embeddings = words_embeddings + position_embeddings
-            # embeddings = self.LayerNorm(embeddings)
-            # ocr_embedding_output = self.ocr_embedding(ocr_embedding_output)
+            # Add position info
+            ocr_embedding_output = ocr_embedding_output + input_ocr_posits
+            ocr_embedding_output = self.ocr_embedding(ocr_embedding_output)
+            # ocr_embedding_output = self.LayerNorm(ocr_embedding_output)
             ocr_embedding_output = self.dropout(ocr_embedding_output)
             embedding_output = torch.cat((embedding_output, ocr_embedding_output), 1)
 
