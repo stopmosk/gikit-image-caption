@@ -769,6 +769,7 @@ class BertForImageCaptioning(CaptionPreTrainedModel):
 
     def encode_forward(self, input_ids, img_feats, attention_mask, masked_pos,
                        masked_ids=None, token_type_ids=None, position_ids=None,
+                       input_ocr_ids=None, input_ocr_posits=None,
                        head_mask=None, is_training=True, encoder_history_states=None):
         # input_ids: tokenized sentence & image tags (40 + 30 = 70)
         # img_feats: image features (50) d=2054
@@ -777,17 +778,17 @@ class BertForImageCaptioning(CaptionPreTrainedModel):
         # masked_ids: id's of masked gt words
         # token_type_ids: 0 for caption, 1 for image tags
 
-        # # Show attention mask
-        # for row in attention_mask[0]:
-        #     for col in row:
-        #         print(col.item(), end='')
-        #     print()
-        # input('PRESS ANY KEY:')
+        # inputs = {
+        #     'input_ids': batch[0], 'attention_mask': batch[1], 'token_type_ids': batch[2],
+        #     'img_feats': batch[3], 'masked_pos': batch[4], 'masked_ids': batch[5],
+        #     'input_ocr_ids': batch[6], 'input_ocr_posits': batch[7],
+        # }
 
         # Run BERT
         outputs = self.bert(
             input_ids, img_feats=img_feats, attention_mask=attention_mask,
             position_ids=position_ids, token_type_ids=token_type_ids,
+            input_ocr_ids=input_ocr_ids, input_ocr_posits=input_ocr_posits,
             head_mask=head_mask, encoder_history_states=encoder_history_states
         )
 
