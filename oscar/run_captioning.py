@@ -200,8 +200,8 @@ class CaptionTSVDataset(Dataset):
         # print('FEAT x1y1x2y2wh:', features[0, -6:])
         # print('LABELrand:', od_labels.split(' ')[0])
 
-        example = self.tensorizer.tensorize_example_v1(
-            text_a=caption, img_feat=features, text_b=od_labels, text_c=ocr_labels,  # text_c_pos=ocr_boxes,
+        example = self.tensorizer.tensorize_example_v2(
+            text_a=caption, img_feat=features, text_b=od_labels, text_c=ocr_labels, text_c_pos=ocr_boxes,
         )
         return img_key, example
 
@@ -658,6 +658,7 @@ class CaptionTensorizerOCR(object):
 
         # OCR TOKENS
         ocr_len = 0
+        input_ocr_ids = [1]
         if text_c:
             tokens_c = self.tokenizer.tokenize(text_c)  # Tokenize OCR labels string
             # TODO: tokenizer for text not in dictionary?
@@ -668,6 +669,8 @@ class CaptionTensorizerOCR(object):
             padding_c_len = self.max_ocr_seq_length - len(tokens_c)  # pad to <= 50
             ocr_tokens += [self.tokenizer.pad_token] * padding_c_len  # [OCR, [PAD]s] = 50
             input_ocr_ids = self.tokenizer.convert_tokens_to_ids(ocr_tokens)
+            print('\n\n\n', input_ocr_ids, flush=True)
+        print(input_ocr_ids, flush=True)
         ocr_segment_ids = [sequence_c_segment_id] * self.max_ocr_seq_length  # [2, 2, ..., 2] = 50
 
         # prepare attention mask:
@@ -699,6 +702,11 @@ class CaptionTensorizerOCR(object):
         attention_mask[o_start: o_end, l_start: l_end] = 1
         attention_mask[r_start: r_end, o_start: o_end] = 1
         attention_mask[o_start: o_end, r_start: r_end] = 1
+
+        for row in attention_mask:
+            for col in row:
+                print(col, end=' ')
+            print(flush=True)
 
         input_ids = torch.tensor(input_ids, dtype=torch.long)
         # TODO: input_ocr_ids should work with no OCR too
@@ -1388,6 +1396,8 @@ def main():
             finetuning_task='image_captioning'
         )
 
+        config.add_ocr_labels = args.add_ocr_labels
+        config.ocr_dim = args.ocr_dim
         config.img_feature_dim = args.img_feature_dim
         config.img_feature_type = args.img_feature_type
         config.hidden_dropout_prob = args.drop_out
