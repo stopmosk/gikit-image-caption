@@ -203,6 +203,11 @@ class CaptionTSVDataset(Dataset):
         example = self.tensorizer.tensorize_example_v2(
             text_a=caption, img_feat=features, text_b=od_labels, text_c=ocr_labels, text_c_pos=ocr_boxes,
         )
+        # print(ocr_labels)
+        # print(ocr_boxes)
+        # print('\n', example[6], flush=True)
+        # print('\n', example[7], flush=True)
+
         return img_key, example
 
     def __len__(self):
@@ -668,11 +673,16 @@ class CaptionTensorizerOCR(object):
             padding_c_len = self.max_ocr_seq_length - len(tokens_c)  # pad to <= 50
             ocr_tokens += [self.tokenizer.pad_token] * padding_c_len  # [OCR, [PAD]s] = 50
             input_ocr_ids = self.tokenizer.convert_tokens_to_ids(ocr_tokens)
-            print(input_ocr_ids, flush=True)
+            # print(input_ocr_ids, flush=True)
         else:
             ocr_tokens = [self.tokenizer.pad_token] * self.max_ocr_seq_length  # [[PAD]s] = 50
             input_ocr_ids = self.tokenizer.convert_tokens_to_ids(ocr_tokens)
-            print(input_ocr_ids, flush=True)
+            # print(input_ocr_ids, flush=True)
+
+        # !!! FIX IT !!!
+        text_c_pos = np.zeros((len(ocr_tokens), 6))
+        # !!! FIX IT !!!
+
         ocr_segment_ids = [sequence_c_segment_id] * self.max_ocr_seq_length  # [2, 2, ..., 2] = 50
 
         # prepare attention mask:
