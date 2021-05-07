@@ -23,5 +23,5 @@ python oscar/run_captioning.py \
 --drop_worst_after=20000 \
 --logging_steps=100 \
 --save_steps=2000 \
---output_dir=../output/txtcps_base_xe/ \
+--output_dir=../output/txtcps_base_xe_rosetta02/ \
 --fp16
