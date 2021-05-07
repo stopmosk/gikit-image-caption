@@ -408,7 +408,7 @@ class CaptionTensorizer(object):
         attention_mask[o_start: o_end, o_start: o_end] = 1
         attention_mask[l_start: l_end, l_start: l_end] = 1
         attention_mask[r_start: r_end, r_start: r_end] = 1
-        # full attention for C-O, C-L, C-R
+        # full attention for C-O, C-L, C-R  # and no O-C, L-C, R-C
         attention_mask[c_start: c_end, o_start: o_end] = 1
         attention_mask[c_start: c_end, l_start: l_end] = 1
         attention_mask[c_start: c_end, r_start: r_end] = 1
@@ -519,10 +519,10 @@ class CaptionTensorizer(object):
         # full attention for L-L, R-R
         attention_mask[l_start: l_end, l_start: l_end] = 1
         attention_mask[r_start: r_end, r_start: r_end] = 1
-        # full attention for C-L, C-R
+        # full attention for C-L, C-R  # and no L-C, R-C
         attention_mask[c_start: c_end, l_start: l_end] = 1
         attention_mask[c_start: c_end, r_start: r_end] = 1
-        # full attention for L-R:
+        # full attention for L-R, R-L:
         attention_mask[l_start: l_end, r_start: r_end] = 1
         attention_mask[r_start: r_end, l_start: l_end] = 1
 
@@ -674,7 +674,7 @@ class CaptionTensorizerOCR(object):
         ocr_segment_ids = [sequence_c_segment_id] * self.max_ocr_seq_length  # [2, 2, ..., 2] = 50
 
         # prepare attention mask:
-        # note that there is no attention from caption to image (??? WUT ???)
+        # note that there is no attention from caption to image (no L-C, R-C, O-C, ...)
         # because otherwise it will violate the triangle attention
         # for caption as caption will have full attention on image.
         ocr_start_pos = self.max_seq_len + self.max_img_seq_len
@@ -691,7 +691,7 @@ class CaptionTensorizerOCR(object):
         attention_mask[l_start: l_end, l_start: l_end] = 1
         attention_mask[r_start: r_end, r_start: r_end] = 1
         attention_mask[o_start: o_end, o_start: o_end] = 1
-        # full attention for C-O, C-L, C-R
+        # full attention for C-L, C-R, C-O  # and no L-C, R-C, O-C
         attention_mask[c_start: c_end, l_start: l_end] = 1
         attention_mask[c_start: c_end, r_start: r_end] = 1
         attention_mask[c_start: c_end, o_start: o_end] = 1
@@ -703,10 +703,10 @@ class CaptionTensorizerOCR(object):
         attention_mask[r_start: r_end, o_start: o_end] = 1
         attention_mask[o_start: o_end, r_start: r_end] = 1
 
-        for row in attention_mask:
-            for col in row:
-                print(col, end=' ')
-            print(flush=True)
+        # for row in attention_mask:
+        #     for col in row:
+        #         print(col.item, end=' ')
+        #     print(flush=True)
 
         input_ids = torch.tensor(input_ids, dtype=torch.long)
         # TODO: input_ocr_ids should work with no OCR too
