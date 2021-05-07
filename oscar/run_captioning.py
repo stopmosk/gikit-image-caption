@@ -652,6 +652,7 @@ class CaptionTensorizerOCR(object):
             ocr_len = len(tokens_c)
             padding_c_len = self.max_ocr_seq_length - len(tokens_c)  # pad to <= 50
             ocr_tokens += [self.tokenizer.pad_token] * padding_c_len  # [OCR, [PAD]s] = 50
+            input_ocr_ids = self.tokenizer.convert_tokens_to_ids(ocr_tokens)
         ocr_segment_ids = [sequence_c_segment_id] * self.max_ocr_seq_length  # [2, 2, ..., 2] = 50
 
         # prepare attention mask:
@@ -685,12 +686,14 @@ class CaptionTensorizerOCR(object):
         attention_mask[o_start: o_end, r_start: r_end] = 1
 
         input_ids = torch.tensor(input_ids, dtype=torch.long)
+        # TODO: input_ocr_ids should work with no OCR too
+        input_ocr_ids = torch.tensor(input_ocr_ids, dtype=torch.long)
         segment_ids = torch.tensor(segment_ids, dtype=torch.long)
 
         if self.is_train:
             masked_ids = torch.tensor(masked_ids, dtype=torch.long)
-            return input_ids, attention_mask, segment_ids, img_feat, masked_pos, masked_ids
-        return input_ids, attention_mask, segment_ids, img_feat, masked_pos
+            return input_ids, attention_mask, segment_ids, img_feat, masked_pos, masked_ids, input_ocr_ids
+        return input_ids, attention_mask, segment_ids, img_feat, masked_pos, input_ocr_ids
 
 
 def build_dataset(yaml_file, tokenizer, args, is_train=True):
@@ -853,7 +856,7 @@ def train(args, train_dataloader, val_dataset, model, tokenizer):
                 model.train()
                 inputs = {
                     'input_ids': batch[0], 'attention_mask': batch[1], 'token_type_ids': batch[2],
-                    'img_feats': batch[3], 'masked_pos': batch[4], 'masked_ids': batch[5],
+                    'img_feats': batch[3], 'masked_pos': batch[4], 'masked_ids': batch[5], 'input_ocr_ids': batch[6],
                 }
 
                 # *** RUN MODEL *** #
@@ -1115,6 +1118,7 @@ def test(args, test_dataloader, model, tokenizer, predict_file):
                     'token_type_ids': batch[2],
                     'img_feats': batch[3],
                     'masked_pos': batch[4],
+                    'input_ocr_ids': batch[5],
                 }
                 if args.use_cbs:
                     inputs.update({
@@ -1253,6 +1257,7 @@ def main():
     # OCR
     parser.add_argument('--add_ocr_labels', default=False, action='store_true', help='Whether to add OCR labels or not')
     parser.add_argument('--max_ocr_seq_length', default=10, type=int, help='The maximum sequence length for OCR caption.')
+    parser.add_argument('--ocr_dim', default=768+6, type=int, help='embedding + pos (xyxywh)')
 
     parser.add_argument('--tokenizer_name', default='', type=str, help='Pretrained tokenizer name or path if not the same as model_name.')
     parser.add_argument('--do_lower_case', action='store_true', help='Set this flag if you are using an uncased model.')

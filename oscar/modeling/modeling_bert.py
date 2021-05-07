@@ -152,7 +152,7 @@ class BertImgModelOCR(BertPreTrainedModel):
         self.pooler = BertPooler(config)   # tanh(Linear(bert_first_out_token))
 
         self.ocr_dim = config.ocr_dim
-        self.ocr_embedding = nn.Linear(self.ocr_dim, self.config.hidden_size, bias=True)  # stopmosk
+        self.ocr_embedding = nn.Linear(self.ocr_dim, self.config.hidden_size, bias=True)
 
         self.img_dim = config.img_feature_dim
         logger.info(f'BertImgModelOCR Image Dimension: {self.img_dim}')
@@ -181,7 +181,7 @@ class BertImgModelOCR(BertPreTrainedModel):
         for layer, heads in heads_to_prune.items():
             self.encoder.layer[layer].attention.prune_heads(heads)
 
-    def forward(self, input_ids, img_feats=None, token_type_ids=None, attention_mask=None,
+    def forward(self, input_ids, input_ocr_ids=None, img_feats=None, token_type_ids=None, attention_mask=None,
                 position_ids=None, head_mask=None, encoder_history_states=None):
         if attention_mask is None:
             attention_mask = torch.ones_like(input_ids)
@@ -230,18 +230,28 @@ class BertImgModelOCR(BertPreTrainedModel):
         if encoder_history_states:
             assert img_feats is None, "Cannot take image features while using encoder history states"
 
-        # ocr_embedding_output = self.ocr_embedding(ocr_feats)
-
         # Add image region features
         if img_feats is not None:
             # frcnn features
             img_embedding_output = self.img_embedding(img_feats)
             if self.use_img_layernorm:
                 img_embedding_output = self.LayerNorm(img_embedding_output)
-            # add dropout on image embedding
             img_embedding_output = self.dropout(img_embedding_output)
-            # concatenate two embeddings
             embedding_output = torch.cat((embedding_output, img_embedding_output), 1)
+
+        ocr_embedding_output = None
+        if input_ocr_ids is not None:
+            seq_length = input_ocr_ids.size(1)
+            # Make fake pos. ids and feed it into BertEmbeddings because we will perform custom pos.encoding for OCR
+            ocr_fake_position_ids = torch.zeros(seq_length, dtype=torch.long, device=input_ocr_ids.device)
+            ocr_fake_position_ids = ocr_fake_position_ids.unsqueeze(0).expand_as(input_ocr_ids)
+            ocr_embedding_output = self.embeddings(input_ocr_ids, position_ids=ocr_fake_position_ids, token_type_ids=None)
+            # TODO: pos enc & linear
+            # embeddings = words_embeddings + position_embeddings
+            # embeddings = self.LayerNorm(embeddings)
+            # ocr_embedding_output = self.ocr_embedding(ocr_embedding_output)
+            ocr_embedding_output = self.dropout(ocr_embedding_output)
+            embedding_output = torch.cat((embedding_output, ocr_embedding_output), 1)
 
         # Run BERT
         encoder_outputs = self.encoder(
