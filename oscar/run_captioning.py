@@ -670,7 +670,8 @@ class CaptionTensorizerOCR(object):
             input_ocr_ids = self.tokenizer.convert_tokens_to_ids(ocr_tokens)
             print(input_ocr_ids, flush=True)
         else:
-            input_ocr_ids = [] #[self.tokenizer.pad_token]
+            ocr_tokens = [self.tokenizer.pad_token] * self.max_ocr_seq_length  # [[PAD]s] = 50
+            input_ocr_ids = self.tokenizer.convert_tokens_to_ids(ocr_tokens)
             print(input_ocr_ids, flush=True)
         ocr_segment_ids = [sequence_c_segment_id] * self.max_ocr_seq_length  # [2, 2, ..., 2] = 50
 
