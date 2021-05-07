@@ -85,7 +85,8 @@ class CaptionTSVDataset(Dataset):
             self.ocr_blocks = {el['image_id']: el['data'] for el in ob_list}
 
         self.tokenizer = tokenizer
-        self.tensorizer = CaptionTensorizer(
+        tensorizer_class = CaptionTensorizerOCR if add_ocr_labels else CaptionTensorizer
+        self.tensorizer = tensorizer_class(
             self.tokenizer, max_img_seq_length, max_seq_length, max_seq_a_length, max_ocr_seq_length,
             mask_prob=mask_prob, max_masked_tokens=max_masked_tokens, is_train=is_train,
         )

@@ -248,10 +248,10 @@ class BertImgModelOCR(BertPreTrainedModel):
             ocr_embedding_output = self.embeddings(input_ocr_ids, position_ids=ocr_fake_position_ids, token_type_ids=None)
             # TODO: pos enc & linear
             # Add position info
-            ocr_embedding_output = ocr_embedding_output + input_ocr_posits
-            ocr_embedding_output = self.ocr_embedding(ocr_embedding_output)
-            # ocr_embedding_output = self.LayerNorm(ocr_embedding_output)
-            ocr_embedding_output = self.dropout(ocr_embedding_output)
+            # ocr_embedding_output = ocr_embedding_output + input_ocr_posits
+            # ocr_embedding_output = self.ocr_embedding(ocr_embedding_output)
+            # # ocr_embedding_output = self.LayerNorm(ocr_embedding_output)
+            # ocr_embedding_output = self.dropout(ocr_embedding_output)
             embedding_output = torch.cat((embedding_output, ocr_embedding_output), 1)
 
         # Run BERT
@@ -736,7 +736,9 @@ class BertForImageCaptioning(CaptionPreTrainedModel):
     def __init__(self, config):
         super(BertForImageCaptioning, self).__init__(config)
         self.config = config
-        self.bert = BertImgModel(config)
+        bert_class = BertImgModelOCR if config.add_ocr_labels else BertImgModel
+        assert bert_class is BertImgModelOCR  # For test
+        self.bert = bert_class(config)
         self.cls = BertOnlyMLMHead(config)  # linear+emb(?) layer: embedding -> word_probs  (i.e. hidden_size -> vocab_size)
         self.loss = BertCaptioningLoss(config)
 
