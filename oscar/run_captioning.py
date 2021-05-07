@@ -173,7 +173,7 @@ class CaptionTSVDataset(Dataset):
         od_labels = None
         if self.add_od_labels:
             label_info = json.loads(self.label_tsv.seek(img_idx)[1])
-            od_labels = ' '.join([l['class'] for l in label_info])
+            od_labels = ' '.join([el['class'] for el in label_info])
         return od_labels
 
     def get_caption_file_in_coco_format(self):
@@ -658,7 +658,6 @@ class CaptionTensorizerOCR(object):
 
         # OCR TOKENS
         ocr_len = 0
-        input_ocr_ids = [1]
         if text_c:
             tokens_c = self.tokenizer.tokenize(text_c)  # Tokenize OCR labels string
             # TODO: tokenizer for text not in dictionary?
@@ -669,8 +668,10 @@ class CaptionTensorizerOCR(object):
             padding_c_len = self.max_ocr_seq_length - len(tokens_c)  # pad to <= 50
             ocr_tokens += [self.tokenizer.pad_token] * padding_c_len  # [OCR, [PAD]s] = 50
             input_ocr_ids = self.tokenizer.convert_tokens_to_ids(ocr_tokens)
-            print('\n\n\n', input_ocr_ids, flush=True)
-        print(input_ocr_ids, flush=True)
+            print(input_ocr_ids, flush=True)
+        else:
+            input_ocr_ids = [] #[self.tokenizer.pad_token]
+            print(input_ocr_ids, flush=True)
         ocr_segment_ids = [sequence_c_segment_id] * self.max_ocr_seq_length  # [2, 2, ..., 2] = 50
 
         # prepare attention mask:
