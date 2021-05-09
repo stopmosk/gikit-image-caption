@@ -755,6 +755,8 @@ class BertForImageCaptioning(CaptionPreTrainedModel):
 
     def forward(self, *args, **kwargs):
         is_decode = kwargs.get('is_decode', False)
+        input_ocr_ids = kwargs.pop('input_ocr_ids', None)        # Remove from dict and keep in variable
+        input_ocr_posits = kwargs.pop('input_ocr_posits', None)  # Remove from dict and keep in variable
         if is_decode:
             # 1. Called in train-scst mode (once/it)
             # 2. Called in eval mode (once/it)
@@ -764,6 +766,8 @@ class BertForImageCaptioning(CaptionPreTrainedModel):
             # 1. Called in train-ce mode (once/it)
             # 2. Called in train-scst mode by self.generate (num_words_in_sentence times)
             # 3. Called in eval mode by self.generate
+            kwargs['input_ocr_ids'] = input_ocr_ids        # Return value to dict
+            kwargs['input_ocr_posits'] = input_ocr_posits  # Return value to dict
             res = self.encode_forward(*args, **kwargs)
             return res
 
@@ -922,7 +926,7 @@ class BertForImageCaptioning(CaptionPreTrainedModel):
                  num_return_sequences=None, num_keep_best=1, is_decode=None, add_od_labels=False,
                  od_labels_start_posid=None, use_cbs=False, fsm=None, num_constraints=None,
                  min_constraints_to_satisfy=None, use_hypo=False, decoding_constraint_flag=None,
-                 bad_ending_ids=None,):
+                 bad_ending_ids=None):
         """ Generates captions given image features
         """
         # print('GENERATE')
