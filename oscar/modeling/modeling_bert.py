@@ -729,6 +729,294 @@ class BertCaptioningLoss(nn.Module):
         return loss
 
 
+class BertForImageCaptioningOCR(CaptionPreTrainedModel):
+    def __init__(self, config):
+        super(BertForImageCaptioningOCR, self).__init__(config)
+        self.config = config
+        bert_class = BertImgModelOCR if config.add_ocr_labels else BertImgModel
+        assert bert_class is BertImgModelOCR  # For test
+        self.bert = bert_class(config)
+        self.cls = BertOnlyMLMHead(config)  # linear+emb(?) layer: embedding -> word_probs  (i.e. hidden_size -> vocab_size)
+        self.loss = BertCaptioningLoss(config)
+
+        self.apply(self.init_weights)  # Apply init_weights() to modules
+        self.tie_weights()  # Sync weights in embedding encoder and decoder
+
+    def tie_weights(self):
+        if hasattr(self.config, 'tie_weights') and self.config.tie_weights:
+            self._tie_or_clone_weights(self.cls.predictions.decoder, self.bert.embeddings.word_embeddings)
+        freeze = False
+        if hasattr(self.config, 'freeze_embedding'):
+            freeze = self.config.freeze_embedding
+        self.bert.embeddings.word_embeddings.weight.requires_grad = not freeze
+
+    def forward(self, *args, **kwargs):
+        is_decode = kwargs.get('is_decode', False)
+        if is_decode:
+            # 1. Called in train-scst mode (once/it)
+            # 2. Called in eval mode (once/it)
+            res = self.generate(*args, **kwargs)
+            return res
+        else:
+            # 1. Called in train-ce mode (once/it)
+            # 2. Called in train-scst mode by self.generate (num_words_in_sentence times)
+            # 3. Called in eval mode by self.generate
+            res = self.encode_forward(*args, **kwargs)
+            return res
+
+    def encode_forward(self, input_ids, img_feats, attention_mask, masked_pos,
+                       masked_ids=None, token_type_ids=None, position_ids=None,
+                       input_ocr_ids=None, input_ocr_posits=None,
+                       head_mask=None, is_training=True, encoder_history_states=None):
+        # input_ids: tokenized sentence & image tags (40 + 30 = 70)
+        # img_feats: image features (50) d=2054
+        # attention_mask: 1 - visible, 0 - invisible
+        # masked_pos: [0 0 0 1 0 0 0 0 1 0 0 ...] (1 for masked words)
+        # masked_ids: id's of masked gt words
+        # token_type_ids: 0 for caption, 1 for image tags
+        # input_ocr_ids: tokenized ocr text (50)
+        # input_ocr_posits: bboxes of ocr (50)
+
+        # inputs = {
+        #     'input_ids': batch[0], 'attention_mask': batch[1], 'token_type_ids': batch[2],
+        #     'img_feats': batch[3], 'masked_pos': batch[4], 'masked_ids': batch[5],
+        #     'input_ocr_ids': batch[6], 'input_ocr_posits': batch[7],
+        # }
+
+        # Run BERT
+        outputs = self.bert(
+            input_ids, img_feats=img_feats, attention_mask=attention_mask,
+            position_ids=position_ids, token_type_ids=token_type_ids,
+            input_ocr_ids=input_ocr_ids, input_ocr_posits=input_ocr_posits,
+            head_mask=head_mask, encoder_history_states=encoder_history_states
+        )
+
+        # Out: tuple
+        # 0: (1, 120, 768) = batch, pos, hidden_size
+        # 1: (1, 768) - pooled vector
+        # 2: ???hidden???
+
+        if is_training:
+            sequence_output = outputs[0][:, :masked_pos.shape[-1], :]   # (1, 0:70, 768) i.e. only text (words&tags) feats
+            sequence_output_masked = sequence_output[masked_pos==1, :]  # (masked_words_cnt in all batch, 768) i.e (n=2+1+3+1+2+...+1, 768)
+            class_logits = self.cls(sequence_output_masked)  # (masked_words_cnt, vocab_size) - i.e. (n, 30000)
+            masked_ids = masked_ids[masked_ids != 0]   # drop padding tokens, i.e. [2157, 175, 0] -> [2157, 175] - n tokens
+            # Calculate loss
+            masked_loss = self.loss(class_logits.float(), masked_ids)
+            outputs = (masked_loss, class_logits,) + outputs[2:]  # (loss, tensor(n, vocab_size))  # what is outputs[2:]??? - empty
+            # print()
+        else:
+            sequence_output = outputs[0][:, :input_ids.shape[-1], :]  # (1, 0:70, 768)
+            class_logits = self.cls(sequence_output)
+            outputs = (class_logits,) + outputs[2:]
+        return outputs
+
+    def prepare_inputs_for_generation(self, curr_ids, past=None):
+        # NOTE: if attention is on, it should be the token used to mask words in training
+        mask_token_id = self.mask_token_id
+        batch_size = curr_ids.shape[0]
+        mask_ids = torch.full(
+            (batch_size, 1), mask_token_id, dtype=torch.long, device=curr_ids.device
+        )
+
+        def _slice(t, start, end):
+            if t is None:
+                return t
+            assert t.shape == (batch_size, self.max_seq_len + self.od_labels_len)
+            return t[:, start: end]
+
+        def _remove_elements(t, start, end):
+            if t is None:
+                return t
+            assert t.shape == (batch_size, self.max_seq_len + self.od_labels_len)
+            return torch.cat([t[:, :start], t[:, end:]], dim=1)
+
+        if past is None:  # past - cache???
+            input_ids = torch.cat([curr_ids, mask_ids], dim=1)
+
+            curr_len = input_ids.shape[1]
+            full_len = self.max_seq_len + self.od_labels_len + self.img_seq_len + self.ocr_seq_len
+            assert self.full_attention_mask.shape == (batch_size, full_len, full_len)
+
+            def _remove_rows_cols(t, row_start, row_end, col_start, col_end):
+                t00 = t[:, :row_start, :col_start]
+                t01 = t[:, :row_start, col_end:]
+                t10 = t[:, row_end:, :col_start]
+                t11 = t[:, row_end:, col_end:]
+                res = torch.cat([torch.cat([t00, t01], dim=2), torch.cat([t10, t11], dim=2)], dim=1)
+                assert res.shape == (t.shape[0], t.shape[1]-row_end+row_start, t.shape[2]-col_end+col_start)
+                return res
+
+            seq_start = curr_len
+            seq_end = self.max_seq_len
+            attention_mask = _remove_rows_cols(self.full_attention_mask, seq_start, seq_end, seq_start, seq_end)
+            masked_pos = _remove_elements(self.full_masked_pos, seq_start, seq_end)
+            token_type_ids = _remove_elements(self.full_token_type_ids, seq_start, seq_end)
+            position_ids = _remove_elements(self.full_position_ids, seq_start, seq_end)
+            img_feats = self.img_feats
+            input_ocr_ids = self.input_ocr_ids
+            input_ocr_posits = self.input_ocr_posits
+
+            if self.add_od_labels:
+                assert self.od_label_ids.shape[1] == self.od_labels_len
+                input_ids = torch.cat([input_ids, self.od_label_ids], dim=1)
+        else:
+            last_token = curr_ids[:, -1:]
+            # The representation of last token should be re-computed, because
+            # it depends on both self-attention context and input tensor
+            input_ids = torch.cat([last_token, mask_ids], dim=1)
+            start_pos = curr_ids.shape[1] - 1
+            end_pos = start_pos + input_ids.shape[1]
+            masked_pos = _slice(self.full_masked_pos, start_pos, end_pos)
+            token_type_ids = _slice(self.full_token_type_ids, start_pos, end_pos)
+            position_ids = _slice(self.full_position_ids, start_pos, end_pos)
+
+            img_feats = None
+            input_ocr_ids = None
+            input_ocr_posits = None
+            assert past[0].shape[0] == batch_size
+            if self.prev_encoded_layers is None:
+                assert start_pos == 1  # the first token after BOS
+                assert past[0].shape[1] == 2 + self.od_labels_len + self.img_seq_len + self.ocr_seq_len
+                # reorder to [od_labels, img_feats, sentence]
+                self.prev_encoded_layers = [
+                        torch.cat([x[:, 2:, :], x[:, :start_pos, :]], dim=1)
+                        for x in past]
+                s2s = self.full_attention_mask[:, :self.max_seq_len, :self.max_seq_len]
+                s2i = self.full_attention_mask[:, :self.max_seq_len, self.max_seq_len:]
+                i2s = self.full_attention_mask[:, self.max_seq_len:, :self.max_seq_len]
+                i2i = self.full_attention_mask[:, self.max_seq_len:, self.max_seq_len:]
+                self.full_attention_mask = torch.cat(
+                    [torch.cat([i2i, i2s], dim=2), torch.cat([s2i, s2s], dim=2)], dim=1)
+            else:
+                assert start_pos > 1
+                assert past[0].shape[1] == 2
+                self.prev_encoded_layers = [torch.cat([x, p[:, :-1, :]], dim=1)
+                                            for x, p in zip(self.prev_encoded_layers, past)]
+
+            p = self.od_labels_len + self.img_seq_len + self.ocr_seq_len
+            attention_mask = self.full_attention_mask[:, p + start_pos: p + end_pos, :p + end_pos]
+
+        return {'input_ids': input_ids, 'img_feats': img_feats, 'masked_pos': masked_pos,
+                'attention_mask': attention_mask, 'token_type_ids': token_type_ids, 'position_ids': position_ids,
+                'is_training': False, 'encoder_history_states': self.prev_encoded_layers,
+                'input_ocr_ids': input_ocr_ids, 'input_ocr_posits': input_ocr_posits}
+
+    def get_output_embeddings(self):
+        return self.decoder
+
+    def generate(self, img_feats, attention_mask, masked_pos, token_type_ids=None, position_ids=None,
+                 head_mask=None, input_ids=None, max_length=None, do_sample=None, num_beams=None,
+                 temperature=None, top_k=None, top_p=None, repetition_penalty=None, bos_token_id=None,
+                 pad_token_id=None, eos_token_ids=None, mask_token_id=None, length_penalty=None,
+                 num_return_sequences=None, num_keep_best=1, is_decode=None, add_od_labels=False,
+                 od_labels_start_posid=None, use_cbs=False, fsm=None, num_constraints=None,
+                 min_constraints_to_satisfy=None, use_hypo=False, decoding_constraint_flag=None,
+                 bad_ending_ids=None, input_ocr_ids=None, input_ocr_posits=None):
+        """ Generates captions given image features
+        """
+        # print('GENERATE')
+        # input('PRESS ANY KEY:')
+
+        assert is_decode
+        batch_size = img_feats.shape[0]
+        self.img_seq_len = img_feats.shape[1]
+        self.ocr_seq_len = input_ocr_ids.shape[1]  # stopmosk check!!!
+        self.max_seq_len = max_length
+        self.mask_token_id = mask_token_id
+        self.prev_encoded_layers = None
+        # NOTE: num_keep_best is not equivalent to num_return_sequences
+        # num_keep_best is the number of hypotheses to keep in beam search
+        # num_return_sequences is the repeating times of input, coupled with
+        # do_sample=True can generate more than one samples per image
+        self.num_keep_best = num_keep_best
+
+        vocab_size = self.config.vocab_size
+
+        self.add_od_labels = add_od_labels
+        # avoid position_ids collision of caption and od labels
+        self.od_labels_start_posid = max(od_labels_start_posid, self.max_seq_len)
+        if self.add_od_labels:
+            # get od labels part from input_ids
+            assert input_ids.shape[0] == batch_size
+            od_label_ids = input_ids[ :, self.max_seq_len: ]
+            self.od_labels_len = input_ids.shape[1] - self.max_seq_len
+            input_ids = None
+        else:
+            self.od_labels_len = 0
+            od_label_ids = None
+            assert input_ids.shape == (batch_size, self.max_seq_len)
+            input_ids = None
+
+        if input_ids is None:
+            input_ids = torch.full(
+                (batch_size, 1), bos_token_id, dtype=torch.long, device=img_feats.device
+            )
+        else:
+            assert input_ids.dim() == 2, "Input prompt should be of shape (batch_size, sequence length)."
+            assert input_ids.shape[0] == batch_size, "Input batch size must match image features"
+
+        cur_len = input_ids.shape[1]
+        if num_return_sequences != 1:
+            # Expand input to num return sequences
+            input_ids = self._expand_for_beams(input_ids, num_return_sequences)
+            effective_batch_size = batch_size * num_return_sequences
+        else:
+            effective_batch_size = batch_size
+
+        if position_ids is None:
+            position_ids = torch.arange(self.max_seq_len, dtype=torch.long, device=input_ids.device)
+            posids_len = self.max_seq_len
+            if self.add_od_labels:
+                od_labels_posids = torch.arange(
+                    self.od_labels_start_posid,
+                    self.od_labels_start_posid + self.od_labels_len,
+                    dtype=torch.long,
+                    device=input_ids.device
+                )
+                position_ids = torch.cat([position_ids, od_labels_posids])
+                posids_len += self.od_labels_len
+            position_ids = position_ids.unsqueeze(0).expand([batch_size, posids_len])
+
+        num_expand = num_beams * num_return_sequences
+        self.od_label_ids = self._expand_for_beams(od_label_ids, num_expand)
+        self.img_feats = self._expand_for_beams(img_feats, num_expand)
+        self.input_ocr_ids = self._expand_for_beams(input_ocr_ids, num_expand)        # OCR
+        self.input_ocr_posits = self._expand_for_beams(input_ocr_posits, num_expand)  # OCR
+        self.full_attention_mask = self._expand_for_beams(attention_mask, num_expand)
+        self.full_masked_pos = self._expand_for_beams(masked_pos, num_expand)
+        self.full_token_type_ids = self._expand_for_beams(token_type_ids, num_expand)
+        self.full_position_ids = self._expand_for_beams(position_ids, num_expand)
+        self.full_head_mask = self._expand_for_beams(head_mask, num_expand)
+
+        if num_beams > 1:
+            output = self._generate_beam_search(
+                input_ids, cur_len, max_length, do_sample, temperature, top_k, top_p, repetition_penalty,
+                pad_token_id, eos_token_ids, effective_batch_size, length_penalty, num_beams, vocab_size,
+            )
+        else:
+            output = self._generate_no_beam_search(
+                input_ids, cur_len, max_length, do_sample, temperature, top_k, top_p, repetition_penalty,
+                pad_token_id, eos_token_ids, effective_batch_size,
+            )
+
+        return output
+
+    def _expand_for_beams(self, x, num_expand):
+        if x is None or num_expand == 1:
+            return x
+
+        input_shape = list(x.shape)
+        expanded_shape = input_shape[:1] + [num_expand] + input_shape[1:]
+        x = x.unsqueeze(1).expand(expanded_shape)
+        # (batch_size * num_expand, ...)
+        x = x.contiguous().view([input_shape[0] * num_expand] + input_shape[1:])
+        return x
+
+    def _do_output_past(self, outputs):
+        return len(outputs) > 1
+
+
 class BertForImageCaptioning(CaptionPreTrainedModel):
     """
     Bert for Image Captioning.
@@ -755,8 +1043,8 @@ class BertForImageCaptioning(CaptionPreTrainedModel):
 
     def forward(self, *args, **kwargs):
         is_decode = kwargs.get('is_decode', False)
-        input_ocr_ids = kwargs.pop('input_ocr_ids', None)        # Remove from dict and keep in variable
-        input_ocr_posits = kwargs.pop('input_ocr_posits', None)  # Remove from dict and keep in variable
+        # input_ocr_ids = kwargs.pop('input_ocr_ids', None)        # Remove from dict and keep in variable
+        # input_ocr_posits = kwargs.pop('input_ocr_posits', None)  # Remove from dict and keep in variable
         if is_decode:
             # 1. Called in train-scst mode (once/it)
             # 2. Called in eval mode (once/it)
@@ -766,8 +1054,8 @@ class BertForImageCaptioning(CaptionPreTrainedModel):
             # 1. Called in train-ce mode (once/it)
             # 2. Called in train-scst mode by self.generate (num_words_in_sentence times)
             # 3. Called in eval mode by self.generate
-            kwargs['input_ocr_ids'] = input_ocr_ids        # Return value to dict
-            kwargs['input_ocr_posits'] = input_ocr_posits  # Return value to dict
+            # kwargs['input_ocr_ids'] = input_ocr_ids        # Return value to dict
+            # kwargs['input_ocr_posits'] = input_ocr_posits  # Return value to dict
             res = self.encode_forward(*args, **kwargs)
             return res
 
@@ -841,8 +1129,7 @@ class BertForImageCaptioning(CaptionPreTrainedModel):
 
             curr_len = input_ids.shape[1]
             full_len = self.max_seq_len + self.od_labels_len + self.img_seq_len
-            assert self.full_attention_mask.shape == (batch_size,
-                    full_len, full_len)
+            assert self.full_attention_mask.shape == (batch_size, full_len, full_len)
 
             def _remove_rows_cols(t, row_start, row_end, col_start, col_end):
                 t00 = t[:, :row_start, :col_start]
@@ -857,9 +1144,7 @@ class BertForImageCaptioning(CaptionPreTrainedModel):
 
             seq_start = curr_len
             seq_end = self.max_seq_len
-            attention_mask = _remove_rows_cols(self.full_attention_mask, seq_start,
-                    seq_end, seq_start, seq_end)
-
+            attention_mask = _remove_rows_cols(self.full_attention_mask, seq_start, seq_end, seq_start, seq_end)
             masked_pos = _remove_elements(self.full_masked_pos, seq_start, seq_end)
             token_type_ids = _remove_elements(self.full_token_type_ids, seq_start, seq_end)
             position_ids = _remove_elements(self.full_position_ids, seq_start, seq_end)
@@ -888,14 +1173,10 @@ class BertForImageCaptioning(CaptionPreTrainedModel):
                 self.prev_encoded_layers = [
                         torch.cat([x[:, 2:, :], x[:, :start_pos,:]], dim=1)
                         for x in past]
-                s2s = self.full_attention_mask[:, :self.max_seq_len,
-                        :self.max_seq_len]
-                s2i = self.full_attention_mask[:, :self.max_seq_len,
-                        self.max_seq_len:]
-                i2s = self.full_attention_mask[:, self.max_seq_len:,
-                        :self.max_seq_len]
-                i2i = self.full_attention_mask[:, self.max_seq_len:,
-                        self.max_seq_len:]
+                s2s = self.full_attention_mask[:, :self.max_seq_len, :self.max_seq_len]
+                s2i = self.full_attention_mask[:, :self.max_seq_len, self.max_seq_len:]
+                i2s = self.full_attention_mask[:, self.max_seq_len:, :self.max_seq_len]
+                i2i = self.full_attention_mask[:, self.max_seq_len:, self.max_seq_len:]
                 self.full_attention_mask = torch.cat(
                         [torch.cat([i2i, i2s], dim=2),
                         torch.cat([s2i, s2s], dim=2)],
@@ -910,11 +1191,9 @@ class BertForImageCaptioning(CaptionPreTrainedModel):
                 self.od_labels_len+self.img_seq_len+start_pos: self.od_labels_len+self.img_seq_len+end_pos,
                 :self.od_labels_len+self.img_seq_len+end_pos]
 
-        return {'input_ids': input_ids, 'img_feats': img_feats,
-            'masked_pos': masked_pos, 'attention_mask': attention_mask,
-            'token_type_ids': token_type_ids, 'position_ids': position_ids,
-            'is_training': False,
-            'encoder_history_states': self.prev_encoded_layers}
+        return {'input_ids': input_ids, 'img_feats': img_feats, 'masked_pos': masked_pos,
+                'attention_mask': attention_mask, 'token_type_ids': token_type_ids, 'position_ids': position_ids,
+                'is_training': False, 'encoder_history_states': self.prev_encoded_layers}
 
     def get_output_embeddings(self):
         return self.decoder
@@ -938,7 +1217,7 @@ class BertForImageCaptioning(CaptionPreTrainedModel):
         self.max_seq_len = max_length
         self.mask_token_id = mask_token_id
         self.prev_encoded_layers = None
-        # NOTE: num_keep_best is not equavilant to num_return_sequences
+        # NOTE: num_keep_best is not equivalent to num_return_sequences
         # num_keep_best is the number of hypotheses to keep in beam search
         # num_return_sequences is the repeating times of input, coupled with
         # do_sample=True can generate more than one samples per image
@@ -957,7 +1236,7 @@ class BertForImageCaptioning(CaptionPreTrainedModel):
         if self.add_od_labels:
             # get od labels part from input_ids
             assert input_ids.shape[0] == batch_size
-            od_label_ids = input_ids[:, self.max_seq_len:]
+            od_label_ids = input_ids[ :, self.max_seq_len: ]
             self.od_labels_len = input_ids.shape[1] - self.max_seq_len
             input_ids = None
         else:

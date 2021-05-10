@@ -21,7 +21,7 @@ from oscar.utils.misc import (mkdir, set_seed, load_from_yaml_file, find_file_pa
 from oscar.utils.caption_evaluate import (evaluate_on_coco_caption, ScstRewardCriterion)
 from oscar.utils.cbs import ConstraintFilter, ConstraintBoxesReader
 from oscar.utils.cbs import FiniteStateMachineBuilder
-from oscar.modeling.modeling_bert import BertForImageCaptioning
+from oscar.modeling.modeling_bert import BertForImageCaptioning, BertForImageCaptioningOCR
 from transformers.pytorch_transformers import BertTokenizer, BertConfig
 from transformers.pytorch_transformers import AdamW, WarmupLinearSchedule, WarmupConstantSchedule
 
@@ -1396,7 +1396,7 @@ def main():
     # Load pretrained model and tokenizer
     checkpoint = None
     config_class = BertConfig
-    model_class = BertForImageCaptioning
+    model_class = BertForImageCaptioningOCR if args.add_ocr_labels else BertForImageCaptioning
     tokenizer_class = BertTokenizer
 
     if args.do_train:
