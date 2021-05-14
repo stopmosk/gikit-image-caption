@@ -152,7 +152,7 @@ class BertImgModelOCR(BertPreTrainedModel):
         self.pooler = BertPooler(config)   # tanh(Linear(bert_first_out_token))
 
         self.ocr_dim = config.ocr_dim
-        self.ocr_embedding = nn.Linear(self.ocr_dim, self.config.hidden_size, bias=True)
+        self.ocr_projection = nn.Linear(self.ocr_dim, self.config.hidden_size, bias=True)
 
         self.img_dim = config.img_feature_dim
         logger.info(f'BertImgModelOCR Image Dimension: {self.img_dim}')
@@ -253,10 +253,11 @@ class BertImgModelOCR(BertPreTrainedModel):
             # print(input_ocr_posits.shape)
             ocr_embedding_output = torch.cat((ocr_embedding_output, input_ocr_posits), 2)  # Concat emb & pos
             # print(ocr_embedding_output.shape)
-            ocr_embedding_output = self.ocr_embedding(ocr_embedding_output)
+            ocr_embedding_output = self.ocr_projection(ocr_embedding_output)
             # # ocr_embedding_output = self.LayerNorm(ocr_embedding_output)
-            ocr_embedding_output = self.dropout(ocr_embedding_output)
+            # ocr_embedding_output = self.dropout(ocr_embedding_output)
             embedding_output = torch.cat((embedding_output, ocr_embedding_output), 1)
+            print(embedding_output.shape)
 
         # Run BERT
         encoder_outputs = self.encoder(
