@@ -257,7 +257,7 @@ class BertImgModelOCR(BertPreTrainedModel):
             # # ocr_embedding_output = self.LayerNorm(ocr_embedding_output)
             # ocr_embedding_output = self.dropout(ocr_embedding_output)
             embedding_output = torch.cat((embedding_output, ocr_embedding_output), 1)
-            print(embedding_output.shape)
+            # print(embedding_output.shape)
 
         # Run BERT
         encoder_outputs = self.encoder(
