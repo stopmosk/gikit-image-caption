@@ -251,9 +251,11 @@ class BertImgModelOCR(BertPreTrainedModel):
             # Add position info
             # print(ocr_embedding_output.shape)
             # print(input_ocr_posits.shape)
-            ocr_embedding_output = torch.cat((ocr_embedding_output, input_ocr_posits), 2)  # Concat emb & pos
+
+            # ocr_embedding_output = torch.cat((ocr_embedding_output, input_ocr_posits), 2)  # Concat emb & pos
             # print(ocr_embedding_output.shape)
-            ocr_embedding_output = self.ocr_projection(ocr_embedding_output)
+            # ocr_embedding_output = self.ocr_projection(ocr_embedding_output)
+
             # # ocr_embedding_output = self.LayerNorm(ocr_embedding_output)
             # ocr_embedding_output = self.dropout(ocr_embedding_output)
             embedding_output = torch.cat((embedding_output, ocr_embedding_output), 1)
