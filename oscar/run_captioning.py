@@ -169,10 +169,11 @@ class CaptionTSVDataset(Dataset):
             img_ocr_blocks = self.ocr_blocks[img_key]  # list of [box, text, conf]
             ocr_boxes = []
             for block in img_ocr_blocks:
-                x1, y1, x2, y2 = block[0]
-                w, h = x2 - x1, y2 - y1
+                # x1, y1, x2, y2, w, h = block[0]
+                # w, h = x2 - x1, y2 - y1
                 # Make extended bbox with width and height
-                ocr_boxes.append([x1, y1, x2, y2, w, h])
+                # ocr_boxes.append([x1, y1, x2, y2, w, h])
+                ocr_boxes.append(block[0])
             # ocr_boxes = np.array(ocr_boxes)  # CHECK?
         return ocr_boxes
 
