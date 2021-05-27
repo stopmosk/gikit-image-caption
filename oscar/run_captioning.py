@@ -208,9 +208,14 @@ class CaptionTSVDataset(Dataset):
         # print('FEAT x1y1x2y2wh:', features[0, -6:])
         # print('LABELrand:', od_labels.split(' ')[0])
 
-        example = self.tensorizer.tensorize_example_v2(
-            text_a=caption, img_feat=features, text_b=od_labels, text_c=ocr_labels, text_c_pos=ocr_boxes,
-        )
+        if self.add_ocr_labels:
+            example = self.tensorizer.tensorize_example_v2(
+                text_a=caption, img_feat=features, text_b=od_labels, text_c=ocr_labels, text_c_pos=ocr_boxes,
+            )
+        else:
+            example = self.tensorizer.tensorize_example(
+                text_a=caption, img_feat=features, text_b=od_labels,
+            )
         # print(ocr_labels)
         # print(ocr_boxes)
         # print('\n', example[6], flush=True)
