@@ -148,7 +148,7 @@ class CaptionTSVDataset(Dataset):
         return ''
 
     def get_ocr_labels(self, img_key):
-        ocr_labels = None
+        ocr_labels = []
         if self.add_ocr_labels:
             img_ocr_blocks = self.ocr_blocks[img_key]  # list of [box, text, conf]
             # Get only concatenated text without any processing
