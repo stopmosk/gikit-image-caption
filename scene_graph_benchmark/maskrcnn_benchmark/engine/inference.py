@@ -260,7 +260,11 @@ def convert_predi_to_tsv_oscar(predictions, dataset, output_folder, data_subset,
 
             for i, box in enumerate(boxes):
                 # box: [x1, y1, x2, y2]
-                w, h = box[2] - box[0], box[3] - box[1]
+                x1, y1, x2, y2 = box
+                assert 0 <= x1 <= image_width and 0 <= x2 <= image_width and x1 < x2
+                assert 0 <= y1 <= image_height and 0 <= y2 <= image_width and y1 < y2
+                box_relative = [x1 / image_width, y1 / image_height, x2 / image_width, y2 / image_height]
+                w, h = box_relative[2] - box_relative[0], box_relative[3] - box_relative[1]
                 features_pos[i, -6:] = np.array(box + [w, h])
 
             # Unsqueeze #
