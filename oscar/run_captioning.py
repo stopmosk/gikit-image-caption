@@ -66,8 +66,8 @@ class CaptionTSVDataset(Dataset):
         assert op.isfile(self.feat_file)
         if add_od_labels:
             assert op.isfile(self.label_file)
-        if add_ocr_labels:
-            assert op.isfile(self.ocr_file)
+        #if add_ocr_labels:
+        #    assert op.isfile(self.ocr_file)
         if is_train:
             assert op.isfile(self.caption_file) and tokenizer is not None
 
