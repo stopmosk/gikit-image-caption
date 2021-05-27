@@ -289,7 +289,8 @@ class CaptionTensorizer(object):
             mask_prob: probability to mask a input token.
             max_masked_tokens: maximum number of tokens to be masked in one sentence.
         """
-        raise RuntimeError('You must use CaptionTensorizerOCR class')
+        # TO-DO: zzz
+        # raise RuntimeError('You must use CaptionTensorizerOCR class')
 
         self.tokenizer = tokenizer
         self.is_train = is_train
