@@ -250,7 +250,7 @@ class BertImgModelOCR(BertPreTrainedModel):
             # TODO: pos enc & linear
             # Add position info
             # print(ocr_embedding_output.shape)
-            # print(input_ocr_posits.shape)
+            # print(input_ocr_posits.shape) #
 
             ocr_embedding_output = torch.cat((ocr_embedding_output, input_ocr_posits), 2)  # Concat emb & pos
             # print(ocr_embedding_output.shape)
