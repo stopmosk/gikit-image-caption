@@ -451,7 +451,10 @@ class CaptionTensorizer(object):
     def tensorize_example(self, text_a, img_feat, text_b=None,
                           cls_token_segment_id=0, pad_token_segment_id=0,
                           sequence_a_segment_id=0, sequence_b_segment_id=1):
-        raise RuntimeError('For OscarOCR Use tenzorize_example_v1 or v2!')
+
+        if self.is_train:  # Change it!
+            raise RuntimeError('For OscarOCR Use tenzorize_example_v1 or v2!')
+
         if self.is_train:
             tokens_a = self.tokenizer.tokenize(text_a)
         else:
