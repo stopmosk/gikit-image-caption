@@ -135,6 +135,5 @@ examples/runs
 .idea/
 
 # local folders
-data
 models
 output
