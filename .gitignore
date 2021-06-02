@@ -137,3 +137,4 @@ examples/runs
 # local folders
 models
 output
+paraphrase-en.gz
