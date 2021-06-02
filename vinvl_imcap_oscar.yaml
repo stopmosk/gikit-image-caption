@@ -23,13 +23,10 @@ MODEL:
     ROI_ATTRIBUTE_HEAD:
       NUM_ATTRIBUTES: 525
       POSTPROCESS_ATTRIBUTES_THRESHOLD: 0.05
-    ATTRIBUTE_ON: False
-    # DEVICE: 'cpu'
+    ATTRIBUTE_ON: True  # False
 INPUT:
-    MIN_SIZE_TEST: 600
-    MAX_SIZE_TEST: 1000
-#    MIN_SIZE_TEST: 300  # shortest side
-#    MAX_SIZE_TEST: 400  # longest side
+    MIN_SIZE_TEST: 600  # shortest side
+    MAX_SIZE_TEST: 1000  # longest side
     PIXEL_MEAN: [103.530, 116.280, 123.675]
 DATASETS:
     FACTORY_TEST: ("ODTSVDataset",)

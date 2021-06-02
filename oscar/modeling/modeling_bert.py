@@ -325,7 +325,7 @@ class BertImgModel(BertPreTrainedModel):
             self.encoder.layer[layer].attention.prune_heads(heads)
 
     def forward(self, input_ids, img_feats=None, token_type_ids=None, attention_mask=None,
-                position_ids=None, head_mask=None, encoder_history_states=None):
+                position_ids=None, head_mask=None, encoder_history_states=None, **kwargs):
         if attention_mask is None:
             attention_mask = torch.ones_like(input_ids)
 
@@ -1032,7 +1032,7 @@ class BertForImageCaptioning(CaptionPreTrainedModel):
         super(BertForImageCaptioning, self).__init__(config)
         self.config = config
         bert_class = BertImgModelOCR if config.add_ocr_labels else BertImgModel
-        assert bert_class is BertImgModelOCR  # For test
+        # assert bert_class is BertImgModelOCR  # For test
         self.bert = bert_class(config)
         self.cls = BertOnlyMLMHead(config)  # linear+emb(?) layer: embedding -> word_probs  (i.e. hidden_size -> vocab_size)
         self.loss = BertCaptioningLoss(config)

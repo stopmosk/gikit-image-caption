@@ -534,9 +534,10 @@ class CaptionTensorizer(object):
         max_len = self.max_seq_len + self.max_img_seq_len
         attention_mask = torch.zeros((max_len, max_len), dtype=torch.long)
         # C: caption, L: label, R: image region
-        c_start, c_end = 0, seq_a_len
-        l_start, l_end = self.max_seq_a_len, seq_len
-        r_start, r_end = self.max_seq_len, self.max_seq_len + img_len
+        c_start, c_end = 0, seq_a_len  # 0, 40
+        l_start, l_end = self.max_seq_a_len, seq_len  # 40, 40..50
+        r_start, r_end = self.max_seq_len, self.max_seq_len + img_len  # 50, 50..100
+
         # triangle mask for caption to caption
         attention_mask[c_start: c_end, c_start: c_end].copy_(self._triangle_mask[0: seq_a_len, 0: seq_a_len])
         # full attention for L-L, R-R
@@ -728,6 +729,13 @@ class CaptionTensorizerOCR(object):
         l_start, l_end = self.max_seq_a_len, seq_len  # 40, 40..70
         r_start, r_end = self.max_seq_len, self.max_seq_len + img_len  # 70, 70..120
         o_start, o_end = ocr_start_pos, ocr_start_pos + ocr_len  # 120, 120..170
+
+        print(c_start, c_end)
+        print(l_start, l_end)
+        print(r_start, r_end)
+        print(o_start, o_end)
+
+
         # triangle mask for C-C (caption to caption)
         attention_mask[c_start: c_end, c_start: c_end].copy_(self._triangle_mask[0: seq_a_len, 0: seq_a_len])
         # full attention for O-O, L-L, R-R
@@ -1186,9 +1194,12 @@ def test(args, test_dataloader, model, tokenizer, predict_file):
                     'token_type_ids': batch[2],
                     'img_feats': batch[3],
                     'masked_pos': batch[4],
-                    'input_ocr_ids': batch[5],
-                    'input_ocr_posits': batch[6],
                 }
+
+                if len(batch) > 5:
+                    inputs['input_ocr_ids'] = batch[5]
+                    inputs['input_ocr_posits'] = batch[6]
+
                 if args.use_cbs:
                     raise NotImplementedError
                     inputs.update({
@@ -1198,7 +1209,20 @@ def test(args, test_dataloader, model, tokenizer, predict_file):
                 inputs.update(inputs_param)
                 tic = time.time()
                 # captions, logprobs
+
+                # print(model.state_dict().keys('bert.embeddings.word_embeddings.weight'))
+                # print(model.state_dict()['cls.predictions.decoder.weight'])
+                # torch.save(model.state_dict(), 'tmp.pth')
+                print(inputs['img_feats'].shape)
+                inputs['img_feats'] = torch.randn(inputs['img_feats'].shape).cuda()
+
+                print(args.max_seq_length)
+                print(inputs)
+                print(inputs['attention_mask'].shape)
                 outputs = model(**inputs)
+                print(outputs)
+                input('AAAzZZZzz')
+
                 time_meter += time.time() - tic
                 all_caps = outputs[0]  # batch_size * num_keep_best * max_len
                 all_confs = torch.exp(outputs[1])
@@ -1210,6 +1234,9 @@ def test(args, test_dataloader, model, tokenizer, predict_file):
                         res.append({'caption': cap, 'conf': conf.item()})
                     if isinstance(img_key, torch.Tensor):
                         img_key = img_key.item()
+
+                    print(res)
+
                     yield img_key, json.dumps(res)
 
         logger.info(f'Inference model computing time: {time_meter / (step+1)} seconds per batch')
@@ -1469,6 +1496,9 @@ def main():
         checkpoint = args.eval_model_dir
         assert op.isdir(checkpoint)
         config = config_class.from_pretrained(checkpoint)
+        config.add_ocr_labels = args.add_ocr_labels
+        print(config.add_ocr_labels)
+        config.ocr_dim = args.ocr_dim
         config.output_hidden_states = args.output_hidden_states
         tokenizer = tokenizer_class.from_pretrained(checkpoint)
         logger.info(f'Evaluate the following checkpoint: {checkpoint}')

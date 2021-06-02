@@ -14,8 +14,8 @@ MODEL:
     ROI_HEADS:
       BATCH_SIZE_PER_IMAGE: 384 # 512
       POSITIVE_FRACTION: 0.5 # 0.25
-      SCORE_THRESH: 0.2 # 0.0001
-      DETECTIONS_PER_IMG: 100 # 600
+      SCORE_THRESH: 0.2 # 0.2
+      DETECTIONS_PER_IMG: 100 #30 # 100 # 600
       MIN_DETECTIONS_PER_IMG: 10
       NMS_FILTER: 1  # from script
     ROI_BOX_HEAD:
@@ -23,17 +23,17 @@ MODEL:
     ROI_ATTRIBUTE_HEAD:
       NUM_ATTRIBUTES: 525
       POSTPROCESS_ATTRIBUTES_THRESHOLD: 0.05
-    ATTRIBUTE_ON: True
+    ATTRIBUTE_ON: True  # False
 INPUT:
-    MIN_SIZE_TEST: 600
-    MAX_SIZE_TEST: 1000
+    MIN_SIZE_TEST: 600  # shortest side
+    MAX_SIZE_TEST: 1000  # longest side
     PIXEL_MEAN: [103.530, 116.280, 123.675]
 DATASETS:
     FACTORY_TEST: ("ODTSVDataset",)
     TEST: ("val.yaml",)
     LABELMAP_FILE: "models/vinvl/VG-SGG-dicts-vgoi6-clipped.json"
 DATALOADER:
-    NUM_WORKERS: 4
+    NUM_WORKERS: 0
 SOLVER:
     BASE_LR: 0.01
     WEIGHT_DECAY: 0.0001
@@ -42,7 +42,7 @@ SOLVER:
     IMS_PER_BATCH: 1
     CHECKPOINT_PERIOD: 10000
 TEST:
-    IMS_PER_BATCH: 2
+    IMS_PER_BATCH: 1
     SKIP_PERFORMANCE_EVAL: True
     SAVE_PREDICTIONS: False  # True
     SAVE_RESULTS_TO_TSV: True
@@ -50,6 +50,6 @@ TEST:
     GATHER_ON_CPU: True
     IGNORE_BOX_REGRESSION: True  # from script
     OUTPUT_FEATURE: True  # from script
-OUTPUT_DIR: "/media/stopmosk/data/huawei/datasets/output/X152C4_test"
-DATA_DIR: "/media/stopmosk/data/huawei/datasets/textcaps_nn"
+OUTPUT_DIR: "../../datasets/output/my_coco_out"
+DATA_DIR: "../../datasets/coco_nn"
 DISTRIBUTED_BACKEND: 'gloo'
