@@ -117,13 +117,16 @@ class CaptionTSVDataset(Dataset):
         if self.captions:
             key2captions = {key: [] for key in self.image_keys}
             for cap in self.captions:
+                # if cap['image_id'] in key2captions:
                 key2captions[cap['image_id']].append(cap['caption'])
             return key2captions
 
     def get_image_index(self, idx):
         if self.is_train:
             img_cap_pair = self.captions[idx]
-            img_key = img_cap_pair['image_id']
+            img_key = img_cap_pair['image_id']  # 318445 (image_id)
+            # print(self.image_keys)
+            # img_key = self.image_keys[idx]
             return self.key2index[img_key]
         return idx
 
@@ -226,6 +229,7 @@ class CaptionTSVDataset(Dataset):
     def __len__(self):
         if self.is_train:
             return len(self.captions)
+            # return len(self.image_keys)
         return self.get_valid_tsv().num_rows()
 
 
@@ -730,10 +734,10 @@ class CaptionTensorizerOCR(object):
         r_start, r_end = self.max_seq_len, self.max_seq_len + img_len  # 70, 70..120
         o_start, o_end = ocr_start_pos, ocr_start_pos + ocr_len  # 120, 120..170
 
-        print(c_start, c_end)
-        print(l_start, l_end)
-        print(r_start, r_end)
-        print(o_start, o_end)
+        # print(c_start, c_end)
+        # print(l_start, l_end)
+        # print(r_start, r_end)
+        # print(o_start, o_end)
 
 
         # triangle mask for C-C (caption to caption)
@@ -1213,15 +1217,16 @@ def test(args, test_dataloader, model, tokenizer, predict_file):
                 # print(model.state_dict().keys('bert.embeddings.word_embeddings.weight'))
                 # print(model.state_dict()['cls.predictions.decoder.weight'])
                 # torch.save(model.state_dict(), 'tmp.pth')
-                print(inputs['img_feats'].shape)
-                inputs['img_feats'] = torch.randn(inputs['img_feats'].shape).cuda()
 
-                print(args.max_seq_length)
-                print(inputs)
-                print(inputs['attention_mask'].shape)
+                # print(inputs['img_feats'].shape)
+                # inputs['img_feats'] = torch.randn(inputs['img_feats'].shape).cuda()
+
+                # print(args.max_seq_length)
+                # print(inputs)
+                # print(inputs['attention_mask'].shape)
                 outputs = model(**inputs)
-                print(outputs)
-                input('AAAzZZZzz')
+                # print(outputs)
+                # input('AAAzZZZzz')
 
                 time_meter += time.time() - tic
                 all_caps = outputs[0]  # batch_size * num_keep_best * max_len

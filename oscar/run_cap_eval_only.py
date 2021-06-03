@@ -1086,9 +1086,9 @@ def test(args, test_dataloader, model, tokenizer, predict_file):
 
                 print(inputs['img_feats'].shape)
 
-                print(model.state_dict()['cls.predictions.decoder.weight'])
-                model.load_state_dict(torch.load('tmp.pth'))
-                model.eval()
+                # print(model.state_dict()['cls.predictions.decoder.weight'])
+                # model.load_state_dict(torch.load('tmp.pth'))
+                # model.eval()
 
                 # inputs['img_feats'] = torch.randn(inputs['img_feats'].shape).cuda()
 

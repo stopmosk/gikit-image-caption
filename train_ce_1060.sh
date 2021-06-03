@@ -7,10 +7,11 @@ python oscar/run_captioning.py \
 --data_dir=../datasets/coco_caption \
 --model_name_or_path=../pretrained_models/image_captioning/pretrained_base/checkpoint-2000000 \
 --do_lower_case \
+--add_ocr_labels \
 --add_od_labels \
 --learning_rate=0.00003 \
---per_gpu_train_batch_size=16 \
---per_gpu_eval_batch_size=24 \
+--per_gpu_train_batch_size=8 \
+--per_gpu_eval_batch_size=16 \
 --gradient_accumulation_steps=1 \
 --num_train_epochs=80 \
 --num_workers=4 \
@@ -22,4 +23,4 @@ python oscar/run_captioning.py \
 --drop_worst_after=20000 \
 --logging_steps=100 \
 --save_steps=2000 \
---output_dir=../output/coco_base_xe1/ 
+--output_dir=../output/coco_base_xe/

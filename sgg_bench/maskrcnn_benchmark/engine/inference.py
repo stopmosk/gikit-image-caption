@@ -266,8 +266,8 @@ def convert_predi_to_tsv_oscar(predictions, dataset, output_folder, data_subset,
             image_key = dataset.get_img_key(idx)
             image_width = dataset.get_img_info(idx)['width']
             image_height = dataset.get_img_info(idx)['height']
-            im = dataset.get_image(idx)
-            im: Image.Image
+            # im = dataset.get_image(idx)
+            # im: Image.Image
 
             # im.show()
             # print(prediction.bbox)
@@ -284,8 +284,8 @@ def convert_predi_to_tsv_oscar(predictions, dataset, output_folder, data_subset,
             assert features.dtype == features_pos.dtype
 
             # DRAW IMG BOXES
-            plt.figure(figsize=(16, 10))
-            draw = ImageDraw.Draw(im)
+            # plt.figure(figsize=(16, 10))
+            # draw = ImageDraw.Draw(im)
 
             for i, box in enumerate(boxes):
                 # box: [x1, y1, x2, y2]
@@ -299,13 +299,13 @@ def convert_predi_to_tsv_oscar(predictions, dataset, output_folder, data_subset,
                 w, h = box_relative[2] - box_relative[0], box_relative[3] - box_relative[1]
                 features_pos[i, -6:] = np.array(box + [w, h])
 
-                draw.rectangle((x1, y1, x2, y2), outline=255)
+                # draw.rectangle((x1, y1, x2, y2), outline=255)
 
-            plt.axis('off')
-
-            plt.imshow(im)
-            # plt.savefig(sample_img['image_id'] + '.png', bbox_inches='tight')
-            plt.show()
+            # plt.axis('off')
+            #
+            # plt.imshow(im)
+            # # plt.savefig(sample_img['image_id'] + '.png', bbox_inches='tight')
+            # plt.show()
 
             # Unsqueeze #
             all_features = features_pos.reshape(-1)
@@ -318,95 +318,95 @@ def convert_predi_to_tsv_oscar(predictions, dataset, output_folder, data_subset,
             yield image_key, json.dumps(cur_d)
 
 
-    def gen_rows_3():
-        for idx, prediction in sorted(predictions.items()):
-            # print(type(prediction))
-            image_key = dataset.get_img_key(idx)
-            image_width = dataset.get_img_info(idx)['width']
-            image_height = dataset.get_img_info(idx)['height']
-            im = dataset.get_image(idx)
-            im: Image.Image
-
-            # im.show()
-
-            prediction = prediction.resize((image_width, image_height))
-
-            # ['labels', 'scores', 'box_features', 'scores_all', 'boxes_all', 'attr_labels', 'attr_scores']
-            labels = prediction.get_field('labels')
-            scores = prediction.get_field('scores')
-            print(labels, scores)
-            labels_text = [labelmap[el.item()] for el in labels]
-            print(labels_text)
-
-
-            boxes = prediction.bbox.tolist()
-            features = prediction.get_field('box_features').numpy()  # [n, 2048]
-
-            # Add positional info
-            features_pos = np.zeros((len(features), 2048 + 6), dtype=np.float32)
-            features_pos[:, :-6] = features
-            assert features.dtype == features_pos.dtype
-
-            # DRAW IMG BOXES
-            plt.figure(figsize=(16, 10))
-            draw = ImageDraw.Draw(im)
-
-            for i, box in enumerate(boxes):
-                # box: [x1, y1, x2, y2]
-                x1, y1, x2, y2 = box
-                print(i, box, image_width, image_height)
-                # x1 = max(0, x1)
-                # y1 = max(0, y1)
-                # x2 = min(x2, image_width)
-                # y2 = min(y2, image_height)
-                # x2 = max(x2, x1)
-                # y2 = max(y2, y1)
-                # print(i, (x1, y1, x2, y2))
-                # assert x1 <= x2 and y1 <= y2
-                box_relative = [x1 / image_width, y1 / image_height, x2 / image_width, y2 / image_height]
-                w, h = box_relative[2] - box_relative[0], box_relative[3] - box_relative[1]
-                features_pos[i, -6:] = np.array(box + [w, h])
-
-                bbox = box
-                # text = block['word']
-                # print(text, end=' | ')
-                w, h = x2 - x1, y2 - y1
-                # x1, x2 = x1 * im.width, x2 * im.width
-                # y1, y2 = y1 * im.height, y2 * im.height
-                # w, h = w * im.width, h * im.height
-                draw.rectangle((x1, y1, x2, y2), outline=255)
-
-
-            # text_cap = f"GENERATED CAP: {res_dict[sample_img['image_id']]}"
-            # print('\n' + text_cap)
-
-            # max_str_len = im.width // 6  # max string length in letters
-            # strings_num = len(text_cap) // max_str_len + 1
-            #
-            # b_text = [0, 0, im.width, 12 * strings_num]
-            # draw.rectangle(b_text, fill=255)
-            #
-            # text_cap_chunks = [text_cap[seek: seek + max_str_len] for seek in range(0, len(text_cap), max_str_len)]
-            # for i, chunk in enumerate(text_cap_chunks):
-            #     draw.text((0, i * 12), chunk, stroke_width=40, stroke_fill=255)
-
-            plt.axis('off')
-
-            plt.imshow(im)
-            # plt.savefig(sample_img['image_id'] + '.png', bbox_inches='tight')
-            plt.show()
-
-
-
-            # Unsqueeze #
-            all_features = features_pos.reshape(-1)
-
-            cur_d = {
-                'features': base64.b64encode(all_features).decode('utf-8'),
-                'num_boxes': len(boxes),
-            }
-
-            yield image_key, json.dumps(cur_d)
+    # def gen_rows_3():
+    #     for idx, prediction in sorted(predictions.items()):
+    #         # print(type(prediction))
+    #         image_key = dataset.get_img_key(idx)
+    #         image_width = dataset.get_img_info(idx)['width']
+    #         image_height = dataset.get_img_info(idx)['height']
+    #         im = dataset.get_image(idx)
+    #         im: Image.Image
+    #
+    #         # im.show()
+    #
+    #         prediction = prediction.resize((image_width, image_height))
+    #
+    #         # ['labels', 'scores', 'box_features', 'scores_all', 'boxes_all', 'attr_labels', 'attr_scores']
+    #         labels = prediction.get_field('labels')
+    #         scores = prediction.get_field('scores')
+    #         print(labels, scores)
+    #         labels_text = [labelmap[el.item()] for el in labels]
+    #         print(labels_text)
+    #
+    #
+    #         boxes = prediction.bbox.tolist()
+    #         features = prediction.get_field('box_features').numpy()  # [n, 2048]
+    #
+    #         # Add positional info
+    #         features_pos = np.zeros((len(features), 2048 + 6), dtype=np.float32)
+    #         features_pos[:, :-6] = features
+    #         assert features.dtype == features_pos.dtype
+    #
+    #         # DRAW IMG BOXES
+    #         plt.figure(figsize=(16, 10))
+    #         draw = ImageDraw.Draw(im)
+    #
+    #         for i, box in enumerate(boxes):
+    #             # box: [x1, y1, x2, y2]
+    #             x1, y1, x2, y2 = box
+    #             print(i, box, image_width, image_height)
+    #             # x1 = max(0, x1)
+    #             # y1 = max(0, y1)
+    #             # x2 = min(x2, image_width)
+    #             # y2 = min(y2, image_height)
+    #             # x2 = max(x2, x1)
+    #             # y2 = max(y2, y1)
+    #             # print(i, (x1, y1, x2, y2))
+    #             # assert x1 <= x2 and y1 <= y2
+    #             box_relative = [x1 / image_width, y1 / image_height, x2 / image_width, y2 / image_height]
+    #             w, h = box_relative[2] - box_relative[0], box_relative[3] - box_relative[1]
+    #             features_pos[i, -6:] = np.array(box + [w, h])
+    #
+    #             bbox = box
+    #             # text = block['word']
+    #             # print(text, end=' | ')
+    #             w, h = x2 - x1, y2 - y1
+    #             # x1, x2 = x1 * im.width, x2 * im.width
+    #             # y1, y2 = y1 * im.height, y2 * im.height
+    #             # w, h = w * im.width, h * im.height
+    #             draw.rectangle((x1, y1, x2, y2), outline=255)
+    #
+    #
+    #         # text_cap = f"GENERATED CAP: {res_dict[sample_img['image_id']]}"
+    #         # print('\n' + text_cap)
+    #
+    #         # max_str_len = im.width // 6  # max string length in letters
+    #         # strings_num = len(text_cap) // max_str_len + 1
+    #         #
+    #         # b_text = [0, 0, im.width, 12 * strings_num]
+    #         # draw.rectangle(b_text, fill=255)
+    #         #
+    #         # text_cap_chunks = [text_cap[seek: seek + max_str_len] for seek in range(0, len(text_cap), max_str_len)]
+    #         # for i, chunk in enumerate(text_cap_chunks):
+    #         #     draw.text((0, i * 12), chunk, stroke_width=40, stroke_fill=255)
+    #
+    #         plt.axis('off')
+    #
+    #         plt.imshow(im)
+    #         # plt.savefig(sample_img['image_id'] + '.png', bbox_inches='tight')
+    #         plt.show()
+    #
+    #
+    #
+    #         # Unsqueeze #
+    #         all_features = features_pos.reshape(-1)
+    #
+    #         cur_d = {
+    #             'features': base64.b64encode(all_features).decode('utf-8'),
+    #             'num_boxes': len(boxes),
+    #         }
+    #
+    #         yield image_key, json.dumps(cur_d)
 
 
     tsv_writer(gen_rows_1(), os.path.join(output_folder, output_tsv_name[:-4] + '.label.tsv'))
