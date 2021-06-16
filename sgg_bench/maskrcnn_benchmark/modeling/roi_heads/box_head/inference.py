@@ -201,7 +201,7 @@ class PostProcessor(nn.Module):
         inds_all = scores > self.score_thresh
         boxlist_empty = self.prepare_empty_boxlist(boxlist)
         for j in range(1, num_classes):
-            inds = inds_all[:, j].nonzero().squeeze(1)
+            inds = inds_all[:, j].nonzero(as_tuple=False).squeeze(1)
 
             if len(inds)>0:
                 scores_j = scores[inds, j]
@@ -331,7 +331,7 @@ class PostProcessor(nn.Module):
         hs = (y2 - y1).squeeze(1)
         keep = (
             (ws >= 0) & (hs >= 0) & (scores > self.score_thresh * 0.01)
-        ).nonzero().squeeze(1)
+        ).nonzero(as_tuple=False).squeeze(1)
         del ws, hs
 
         # apply nms to the previous low-thresholded results

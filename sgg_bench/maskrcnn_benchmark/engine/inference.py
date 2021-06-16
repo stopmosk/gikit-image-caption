@@ -54,6 +54,7 @@ def compute_on_dataset(model, data_loader, device, bbox_aug, timer=None):
                 output = im_detect_bbox_aug(model, images, device)
             else:
                 try:
+                    #with torch.cuda.amp.autocast():
                     output = model(images.to(device), targets)
                 except RuntimeError as e:
                     image_ids_str = [str(img_id) for img_id in image_ids]
@@ -252,10 +253,10 @@ def convert_predi_to_tsv_oscar(predictions, dataset, output_folder, data_subset,
             objects = []
             for i in range(len(boxes)):
                 cur_d = {}
-                cur_d['rect'] = boxes[i]
                 # cur_d['bbox_id'] = i
                 cur_d['class'] = labelmap[labels[i]]
                 cur_d['conf'] = scores[i]
+                cur_d['rect'] = boxes[i]
                 objects.append(cur_d)
 
             yield image_key, json.dumps(objects)

@@ -866,10 +866,10 @@ class CaptionTensorizerOCR(object):
         r_start, r_end = self.max_seq_len, self.max_seq_len + img_len  # 70, 70..120
         o_start, o_end = ocr_start_pos, ocr_start_pos + ocr_len  # 120, 120..170
 
-        print(c_start, c_end)
-        print(l_start, l_end)
-        print(r_start, r_end)
-        print(o_start, o_end)
+        # print(c_start, c_end)
+        # print(l_start, l_end)
+        # print(r_start, r_end)
+        # print(o_start, o_end)
 
         # triangle mask for C-C (caption to caption)
         attention_mask[c_start: c_end, c_start: c_end].copy_(self._triangle_mask[0: seq_a_len, 0: seq_a_len])
@@ -1008,21 +1008,23 @@ def evaluate(args, val_dataloader, model, tokenizer, output_dir):
     predict_file = get_predict_file(output_dir, val_dataloader.dataset.yaml_file, args)
     test(args, val_dataloader, model, tokenizer, predict_file)
 
-    if get_world_size() > 1:
-        torch.distributed.barrier()
+    # if get_world_size() > 1:
+    #     torch.distributed.barrier()
 
     evaluate_file = get_evaluate_file(predict_file)
 
-    if is_main_process():
-        caption_file = val_dataloader.dataset.get_caption_file_in_coco_format()
-        data = val_dataloader.dataset.yaml_file.split('/')[-2]
-        if 'nocaps' not in data:
-            result = evaluate_on_coco_caption(predict_file, caption_file, outfile=evaluate_file)
-            logger.info(f'evaluation result: {str(result)}')
-            logger.info(f'evaluation result saved to {evaluate_file}')
+    # if is_main_process():
+    caption_file = val_dataloader.dataset.get_caption_file_in_coco_format()
+    
+    data = val_dataloader.dataset.yaml_file.split('/')[-2]
+    #print(data)
+    if 'nocaps' not in data:
+        result = evaluate_on_coco_caption(predict_file, caption_file, outfile=evaluate_file)
+        logger.info(f'evaluation result: {str(result)}')
+        logger.info(f'evaluation result saved to {evaluate_file}')
 
-    if get_world_size() > 1:
-        torch.distributed.barrier()
+    # if get_world_size() > 1:
+    #     torch.distributed.barrier()
 
     return evaluate_file
 
@@ -1084,7 +1086,7 @@ def test(args, test_dataloader, model, tokenizer, predict_file):
                 tic = time.time()
                 # captions, logprobs
 
-                print(inputs['img_feats'].shape)
+                # print(inputs['img_feats'].shape)
 
                 # print(model.state_dict()['cls.predictions.decoder.weight'])
                 # model.load_state_dict(torch.load('tmp.pth'))
@@ -1092,12 +1094,12 @@ def test(args, test_dataloader, model, tokenizer, predict_file):
 
                 # inputs['img_feats'] = torch.randn(inputs['img_feats'].shape).cuda()
 
-                print(args.max_seq_length)
-                print(inputs)
-                print(inputs['attention_mask'].shape)
+                # print(args.max_seq_length)
+                # print(inputs)
+                # print(inputs['attention_mask'].shape)
                 outputs = model(**inputs)
-                print(outputs)
-                input('ADSDADASd')
+                # print(outputs)
+                # input('ADSDADASd')
 
                 time_meter += time.time() - tic
                 all_caps = outputs[0]  # batch_size * num_keep_best * max_len
@@ -1110,7 +1112,7 @@ def test(args, test_dataloader, model, tokenizer, predict_file):
                         res.append({'caption': cap, 'conf': conf.item()})
                     if isinstance(img_key, torch.Tensor):
                         img_key = img_key.item()
-                    print(img_key, res)
+                    # print(img_key, res)
                     yield img_key, json.dumps(res)
 
         logger.info(f'Inference model computing time: {time_meter / (step+1)} seconds per batch')

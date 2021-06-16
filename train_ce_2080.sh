@@ -22,5 +22,5 @@ python oscar/run_captioning.py \
 --drop_worst_after=20000 \
 --logging_steps=100 \
 --save_steps=2000 \
---output_dir=../output/coco_base_xe1/ \
+--output_dir=../output/coco_base_xe1_tmp/ \
 --fp16

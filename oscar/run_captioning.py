@@ -299,8 +299,8 @@ class CaptionTensorizer(object):
             max_masked_tokens: maximum number of tokens to be masked in one sentence.
         """
         # TO-DO: zzz
-        if is_train:
-            raise RuntimeError('You must use CaptionTensorizerOCR class')
+        #if is_train:
+        #    raise RuntimeError('You must use CaptionTensorizerOCR class')
 
         self.tokenizer = tokenizer
         self.is_train = is_train
@@ -456,8 +456,8 @@ class CaptionTensorizer(object):
                           cls_token_segment_id=0, pad_token_segment_id=0,
                           sequence_a_segment_id=0, sequence_b_segment_id=1):
 
-        if self.is_train:  # Change it!
-            raise RuntimeError('For OscarOCR Use tenzorize_example_v1 or v2!')
+        #if self.is_train:  # Change it!
+        #    raise RuntimeError('For OscarOCR Use tenzorize_example_v1 or v2!')
 
         if self.is_train:
             tokens_a = self.tokenizer.tokenize(text_a)
@@ -936,8 +936,11 @@ def train(args, train_dataloader, val_dataset, model, tokenizer):
                 inputs = {
                     'input_ids': batch[0], 'attention_mask': batch[1], 'token_type_ids': batch[2],
                     'img_feats': batch[3], 'masked_pos': batch[4], 'masked_ids': batch[5],
-                    'input_ocr_ids': batch[6], 'input_ocr_posits': batch[7],
                 }
+
+                if args.add_ocr_labels:
+                    inputs['input_ocr_ids'] = batch[6]
+                    inputs['input_ocr_posits'] = batch[7]
 
                 # *** RUN MODEL *** #
                 if args.fp16:
@@ -1240,7 +1243,7 @@ def test(args, test_dataloader, model, tokenizer, predict_file):
                     if isinstance(img_key, torch.Tensor):
                         img_key = img_key.item()
 
-                    print(res)
+                    # print(res)
 
                     yield img_key, json.dumps(res)
 

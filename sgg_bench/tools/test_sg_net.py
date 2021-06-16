@@ -13,6 +13,7 @@ from scene_graph_benchmark.config import sg_cfg
 from maskrcnn_benchmark.data import make_data_loader
 from maskrcnn_benchmark.data.datasets.utils.load_files import config_dataset_file
 from maskrcnn_benchmark.engine.inference import inference
+from maskrcnn_benchmark.modeling.detector import build_detection_model
 from scene_graph_benchmark.scene_parser import SceneParser
 from scene_graph_benchmark.AttrRCNN import AttrRCNN
 from maskrcnn_benchmark.utils.checkpoint import DetectronCheckpointer
@@ -80,6 +81,8 @@ def main():
         model = SceneParser(cfg)
     elif cfg.MODEL.META_ARCHITECTURE == "AttrRCNN":
         model = AttrRCNN(cfg)
+    else:
+        model = build_detection_model(cfg)
     model.to(cfg.MODEL.DEVICE)
 
     # Initialize mixed-precision if necessary

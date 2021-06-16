@@ -4,6 +4,7 @@ import os.path as op
 def config_tsv_dataset_args(cfg, dataset_file, factory_name=None, is_train=True):
     full_yaml_file = op.join(cfg.DATA_DIR, dataset_file)
 
+    print(full_yaml_file)
     assert op.isfile(full_yaml_file)
 
     extra_fields = ["class"]

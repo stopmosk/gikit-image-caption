@@ -11,7 +11,9 @@ def load_labelmap_file(labelmap_file):
     label_dict = None
 
     if labelmap_file.endswith('json'):
-        label_dict = json.load(open(labelmap_file, 'r'))['label_to_idx']
+        label_dict = json.load(open(labelmap_file, 'r')) #['label_to_idx']
+        if 'label_to_idx' in label_dict:
+            label_dict = label_dict['label_to_idx']
         label_dict = {key:val-1 for key, val in label_dict.items()}
         return label_dict
 

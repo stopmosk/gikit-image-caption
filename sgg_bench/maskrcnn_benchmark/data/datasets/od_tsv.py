@@ -15,10 +15,11 @@ class ODTSVDataset(TSVYamlDataset):
         super(ODTSVDataset, self).__init__(yaml_file)
 
         self.transforms = transforms
-        self.is_load_label = is_load_label
+        print('IS_LOAD_LABEL set to FALSE, check it please!!! (od_tsv.py)')
+        self.is_load_label = False #is_load_label
         self.attribute_on = kwargs['args'].MODEL.ATTRIBUTE_ON \
             if kwargs['args'] is not None else False
-
+        
         if self.is_load_label:
             # construct maps
             jsondict_file = find_file_path_in_yaml(
