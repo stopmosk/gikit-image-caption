@@ -246,7 +246,8 @@ def convert_predi_to_tsv_oscar(predictions, dataset, output_folder, data_subset,
             image_height = dataset.get_img_info(idx)['height']
             prediction = prediction.resize((image_width, image_height))
 
-            boxes = prediction.bbox.tolist()
+            boxes = prediction.bbox.int().tolist()
+            # print(boxes)
             scores = prediction.get_field('scores').tolist()
             labels = prediction.get_field('labels').tolist()
 
@@ -312,8 +313,8 @@ def convert_predi_to_tsv_oscar(predictions, dataset, output_folder, data_subset,
             all_features = features_pos.reshape(-1)
 
             cur_d = {
-                'features': base64.b64encode(all_features).decode('utf-8'),
                 'num_boxes': len(boxes),
+                'features':  base64.b64encode(all_features).decode('utf-8'),
             }
 
             yield image_key, json.dumps(cur_d)

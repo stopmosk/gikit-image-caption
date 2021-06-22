@@ -4,10 +4,10 @@ DATALOADER:
   NUM_WORKERS: 4
   SIZE_DIVISIBILITY: 32
 DATASETS:
-  FACTORY_TEST: ('ODTSVDataset', 'ODTSVDataset', 'ODTSVDataset')  # ('VGTSVDataset', 'ODTSVDataset', 'OpenImagesTSVDataset', 'ODTSVDataset')
+  FACTORY_TEST: ('ODTSVDataset',)  # ('VGTSVDataset', 'ODTSVDataset', 'OpenImagesTSVDataset', 'ODTSVDataset')
   LABELMAP_FILE: "models/vinvl/oi/vgcocooiobjects_v1_class2ind.json"
-  TEST: ('test.yaml', 'val.yaml', 'train.yaml')
-DATA_DIR: '../../datasets/coco_caption_vvl_nn'
+  TEST: ('train.yaml',)
+DATA_DIR: '../../datasets/coco_my_mini_nn'
 DISTRIBUTED_BACKEND: gloo
 DTYPE: float32
 INPUT:
@@ -127,9 +127,9 @@ MODEL:
     BATCH_SIZE_PER_IMAGE: 384
     BBOX_REG_WEIGHTS: (10.0, 10.0, 5.0, 5.0)
     BG_IOU_THRESHOLD: 0.5
-    DETECTIONS_PER_IMG: 30 #100
+    DETECTIONS_PER_IMG: 100 #100
     FG_IOU_THRESHOLD: 0.5
-    MIN_DETECTIONS_PER_IMG: 3 #10
+    MIN_DETECTIONS_PER_IMG: 10 #10
     NMS: 0.5
     NMS_FILTER: 2
     POSITIVE_FRACTION: 0.5
@@ -233,7 +233,7 @@ MODEL:
   RPN_ONLY: False
   USE_FREQ_PRIOR: False
   WEIGHT: 'models/vinvl/oi/model_final.pth'
-OUTPUT_DIR: '../../datasets/output/coco_caption_vvl_out' 
+OUTPUT_DIR: '../../datasets/coco_my_mini_vvl'
 SOLVER:
   BASE_LR: 0.002
   BIAS_LR_FACTOR: 2
