@@ -33,7 +33,7 @@ dist/
 
 # project dirs
 /datasets
-/models
+# /models
 /output
 /exps
 .ptconfig

@@ -4,15 +4,15 @@
 python oscar/run_captioning.py \
 --do_train \
 --evaluate_during_training \
---data_dir=../datasets/coco_kar_feats \
---model_name_or_path=../pretrained_models/image_captioning/pretrained_base/checkpoint-2000000 \
+--data_dir=../datasets/coco_caption_vvl_feats \
+--model_name_or_path=../pretrained_models/image_captioning/coco_captioning_base_scst/checkpoint-15-66405 \
 --do_lower_case \
 --add_od_labels \
 --max_ocr_seq_length=10 \
 --learning_rate=0.00001 \
 --per_gpu_train_batch_size=72 \
 --per_gpu_eval_batch_size=128 \
---gradient_accumulation_steps=1 \
+--gradient_accumulation_steps=4 \
 --num_train_epochs=80 \
 --num_workers=6 \
 --warmup_steps=2000 \
@@ -23,5 +23,5 @@ python oscar/run_captioning.py \
 --drop_worst_after=20000 \
 --logging_steps=200 \
 --save_steps=2000 \
---output_dir=../output/coco_kar_xe2/ \
+--output_dir=../output/coco_my_vvl_xe/ \
 --fp16

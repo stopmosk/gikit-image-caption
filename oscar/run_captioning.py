@@ -1227,7 +1227,12 @@ def test(args, test_dataloader, model, tokenizer, predict_file):
                 # print(args.max_seq_length)
                 # print(inputs)
                 # print(inputs['attention_mask'].shape)
-                outputs = model(**inputs)
+                if args.fp16:
+                    with torch.cuda.amp.autocast():
+                        outputs = model(**inputs)
+                else:
+                    outputs = model(**inputs)
+                    
                 # print(outputs)
                 # input('AAAzZZZzz')
 
