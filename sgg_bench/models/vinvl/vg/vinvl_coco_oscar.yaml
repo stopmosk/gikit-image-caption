@@ -1,0 +1,55 @@
+MODEL:
+    META_ARCHITECTURE: "AttrRCNN"
+    WEIGHT: "models/vinvl/vg/vinvl_vg_x152c4.pth"
+    BACKBONE:
+      CONV_BODY: "R-152-C4"
+    RESNETS:
+      BACKBONE_OUT_CHANNELS: 1024
+      STRIDE_IN_1X1: False
+      NUM_GROUPS: 32
+      WIDTH_PER_GROUP: 8
+    RPN:
+      PRE_NMS_TOP_N_TEST: 6000
+      POST_NMS_TOP_N_TEST: 300
+    ROI_HEADS:
+      BATCH_SIZE_PER_IMAGE: 384 # 512
+      POSITIVE_FRACTION: 0.5 # 0.25
+      SCORE_THRESH: 0.2 # 0.2
+      DETECTIONS_PER_IMG: 100 #30 # 100 # 600
+      MIN_DETECTIONS_PER_IMG: 10
+      NMS_FILTER: 1  # from script
+    ROI_BOX_HEAD:
+      NUM_CLASSES: 1595
+    ROI_ATTRIBUTE_HEAD:
+      NUM_ATTRIBUTES: 525
+      POSTPROCESS_ATTRIBUTES_THRESHOLD: 0.05
+    ATTRIBUTE_ON: True  # False
+INPUT:
+    MIN_SIZE_TEST: 600  # shortest side
+    MAX_SIZE_TEST: 1000  # longest side
+    PIXEL_MEAN: [103.530, 116.280, 123.675]
+DATASETS:
+    FACTORY_TEST: ("ODTSVDataset",)
+    TEST: ("train.yaml",)
+    LABELMAP_FILE: "models/vinvl/vg/VG-SGG-dicts-vgoi6-clipped.json"
+DATALOADER:
+    NUM_WORKERS: 4
+SOLVER:
+    BASE_LR: 0.01
+    WEIGHT_DECAY: 0.0001
+    MAX_ITER: 90000
+    STEPS: (49000, 65000)
+    IMS_PER_BATCH: 1
+    CHECKPOINT_PERIOD: 10000
+TEST:
+    IMS_PER_BATCH: 4
+    SKIP_PERFORMANCE_EVAL: True
+    SAVE_PREDICTIONS: False  # True
+    SAVE_RESULTS_TO_TSV: True
+    TSV_SAVE_SUBSET: ['class', 'conf', 'rect', 'feature']
+    GATHER_ON_CPU: True
+    IGNORE_BOX_REGRESSION: True  # from script
+    OUTPUT_FEATURE: True  # from script
+OUTPUT_DIR: "../../datasets/coco_my_mini_vvl"
+DATA_DIR: "../../datasets/coco_my_mini_nn"
+DISTRIBUTED_BACKEND: 'gloo'
