@@ -34,7 +34,7 @@ DATASETS:
     TEST: ("train.yaml",)
     LABELMAP_FILE: "models/vinvl/vg/VG-SGG-dicts-vgoi6-clipped.json"
 DATALOADER:
-    NUM_WORKERS: 6
+    NUM_WORKERS: 4
 TEST:
     IMS_PER_BATCH: 2
     SKIP_PERFORMANCE_EVAL: True
@@ -44,6 +44,6 @@ TEST:
     GATHER_ON_CPU: True
     IGNORE_BOX_REGRESSION: True  # from script
     OUTPUT_FEATURE: True
-OUTPUT_DIR: "../../datasets/coco_my_mini_vvl"
-DATA_DIR: "../../datasets/coco_my_mini_nn"
+OUTPUT_DIR: "../../datasets/coco_my_oscar_vvl"
+DATA_DIR: "../../datasets/coco_my_oscar_nn"
 DISTRIBUTED_BACKEND: 'gloo'
