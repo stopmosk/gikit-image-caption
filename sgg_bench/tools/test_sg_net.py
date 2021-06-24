@@ -73,7 +73,7 @@ def main():
     logger = setup_logger("maskrcnn_benchmark", save_dir, get_rank())
     logger.propagate = False
     logger.info("Using {} GPUs".format(num_gpus))
-    logger.info(cfg)
+    # logger.info(cfg)
 
     # logger.info("Collecting env info (might take some time)")
     # logger.info("\n" + collect_env_info())

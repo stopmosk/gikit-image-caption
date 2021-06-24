@@ -128,13 +128,9 @@ class PostProcessor(nn.Module):
                     else:
                         initial_conf_thresh = self.score_thresh
                         decrease_num = 0
-                        while new_boxlist.bbox.shape[0] < \
-                                self.min_detections_per_img and decrease_num < 10:
+                        while new_boxlist.bbox.shape[0] < self.min_detections_per_img and decrease_num < 10:
                             self.score_thresh /= 2.0
-                            print(("\nNumber of proposals {} is too small, "
-                                    "retrying filter_results with score thresh"
-                                    " = {}").format(new_boxlist.bbox.shape[0],
-                                                    self.score_thresh))
+                            print(f"\nNumber of proposals {new_boxlist.bbox.shape[0]} is too small, retrying filter_results with score thresh = {self.score_thresh}")
                             new_boxlist = self.filter_method(boxlist, num_classes, feature)
                             decrease_num += 1
                         boxlist = new_boxlist
@@ -215,12 +211,9 @@ class PostProcessor(nn.Module):
                     
                     scores_all = scores[inds]
                     boxlist_for_class.add_field("scores_all", scores_all)
-                    boxlist_for_class.add_field("boxes_all",
-                                                boxes[inds].view(-1, num_classes, 4))
+                    boxlist_for_class.add_field("boxes_all", boxes[inds].view(-1, num_classes, 4))
 
-                boxlist_for_class = boxlist_nms(
-                    boxlist_for_class, self.nms
-                )
+                boxlist_for_class = boxlist_nms(boxlist_for_class, self.nms)
                 num_labels = len(boxlist_for_class)
                 boxlist_for_class.add_field(
                     "labels", torch.full((num_labels,), j, dtype=torch.int64, device=device)
