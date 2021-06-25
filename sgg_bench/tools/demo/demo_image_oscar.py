@@ -50,7 +50,7 @@ def detect_objects_on_single_image(model, transforms, cv2_img):
     square_threshold = 0.005
     filtered_box_ids = (squares > square_threshold).nonzero(as_tuple=False).squeeze(1).tolist()
 
-    prediction = prediction.resize((img_width, img_height))
+    prediction = prediction.resize((1, 1)) #((img_width, img_height))
     boxes = prediction.bbox.tolist()
     classes = prediction.get_field('labels').tolist()
     scores = prediction.get_field('scores').tolist()
@@ -107,7 +107,7 @@ class VinVLDetector:
         #                     help='Modify config options using the command-line')
 
         # config_file = './sgg_bench/sgg_configs/vgattr/vinvl_imcap.yaml'
-        config_file = './vinvl_imcap_oscar.yaml'
+        config_file = './sgg_bench/models/vinvl/vg/for_live.yaml'
         # args.visualize_attr = True
 
         cfg.set_new_allowed(True)
