@@ -57,4 +57,4 @@ Put your images in ```<DATA_DIR>/images``` subfolder and run:
 ./inference_oscar_vvl.sh <DATA_DIR>
 ```
 
-Output 
+Output ```.tsv``` and ```.json``` with the results will be in model folder.
