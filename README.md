@@ -31,12 +31,19 @@ cd ..
 
 # Download datasets (COCO features or your own images)
 
+[Train images](http://images.cocodataset.org/zips/train2014.zip)
+[Val images](http://images.cocodataset.org/zips/val2014.zip)
+[Test images](http://images.cocodataset.org/zips/test2014.zip)
+[Train/val annotations](http://images.cocodataset.org/annotations/annotations_trainval2014.zip)
+
 # Download models
 
 [Detector model](https://drive.google.com/file/d/11YdV_4yLx3W0oKDFgk0yzAd-bP2fY-EZ/view?usp=sharing)
+
 Unzip and put in ```sgg_bench/models/vinvl/vg/```.
 
-[Main model checkpoint]()
+[Main model checkpoint](https://drive.google.com/file/d/1Pu5wY84h5b3-jSLd2wLTmjvh3tqQS796/view?usp=sharing)
+
 Unzip and put in ```../models/```
 
 # Inference
