@@ -32,8 +32,11 @@ cd ..
 # Download datasets (COCO features or your own images)
 
 [Train images](http://images.cocodataset.org/zips/train2014.zip)
+
 [Val images](http://images.cocodataset.org/zips/val2014.zip)
+
 [Test images](http://images.cocodataset.org/zips/test2014.zip)
+
 [Train/val annotations](http://images.cocodataset.org/annotations/annotations_trainval2014.zip)
 
 # Download models
@@ -47,6 +50,11 @@ Unzip and put in ```sgg_bench/models/vinvl/vg/```.
 Unzip and put in ```../models/```
 
 # Inference
+
+Put your images in ```<DATA_DIR>/images``` subfolder and run:
+
 ```bash
-./inference_oscar_vvl.sh
+./inference_oscar_vvl.sh <DATA_DIR>
 ```
+
+Output 
