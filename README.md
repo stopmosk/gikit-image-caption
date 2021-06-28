@@ -32,9 +32,6 @@ cd ..
 # Download datasets (COCO features or your own images)
 
 # Download models
-```
-link
-```
 
 # Inference
 ```bash
