@@ -320,7 +320,7 @@ class CaptionoLiveDataset(Dataset):
         feats_np = np.asarray(feats)
         scores_np = np.asarray(scores)
 
-        print(rects_np.shape, feats_np.shape, scores_np.shape)
+        # print(rects_np.shape, feats_np.shape, scores_np.shape)
 
         # Add positional info
         features_pos = np.zeros((len(feats_np), 2048 + 6), dtype=np.float32)

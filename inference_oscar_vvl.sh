@@ -8,5 +8,5 @@ python oscar/run_cap_eval_only.py \
 --num_beams=5 \
 --max_gen_length=20 \
 --output_dir=../output/my_results \
---eval_model_dir=../pretrained_models/image_captioning/coco_captioning_base_scst/checkpoint-15-66405 \
+--eval_model_dir=../models/checkpoint-22-628000 \
 --test_yaml='val.yaml'

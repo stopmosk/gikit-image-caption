@@ -15,7 +15,7 @@ conda install pytorch torchvision cudatoolkit=10.2 -c pytorch
 # Oscar
 ```bash
 pip install -r requirements.txt
-cd Oscar/coco_caption && ./get_stanford_models.sh && cd ..
+cd coco_caption && ./get_stanford_models.sh && cd ..
 python setup.py build develop
 ```
 
@@ -32,6 +32,12 @@ cd ..
 # Download datasets (COCO features or your own images)
 
 # Download models
+
+[Detector model](https://drive.google.com/file/d/11YdV_4yLx3W0oKDFgk0yzAd-bP2fY-EZ/view?usp=sharing)
+Unzip and put in ```sgg_bench/models/vinvl/vg/```.
+
+[Main model checkpoint]()
+Unzip and put in ```../models/```
 
 # Inference
 ```bash
