@@ -760,8 +760,9 @@ class CaptionTensorizerOCR(object):
 
         # for row in attention_mask:
         #     for col in row:
-        #         print(col.item, end=' ')
+        #         print(col.item(), end=' ')
         #     print(flush=True)
+        # input()
 
         input_ids = torch.tensor(input_ids, dtype=torch.long)
         # TODO: input_ocr_ids should work with no OCR too

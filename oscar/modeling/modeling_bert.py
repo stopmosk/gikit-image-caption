@@ -241,6 +241,7 @@ class BertImgModelOCR(BertPreTrainedModel):
 
         ocr_embedding_output = None
         if input_ocr_ids is not None:
+            # print(input_ocr_ids)
             seq_length = input_ocr_ids.size(1)
             # print(seq_length)
             # Make fake pos. ids and feed it into BertEmbeddings because we will perform custom pos.encoding for OCR
@@ -250,7 +251,7 @@ class BertImgModelOCR(BertPreTrainedModel):
             # TODO: pos enc & linear
             # Add position info
             # print(ocr_embedding_output.shape)
-            # print(input_ocr_posits.shape) #
+            # print(input_ocr_posits) #.shape) #
 
             ocr_embedding_output = torch.cat((ocr_embedding_output, input_ocr_posits), 2)  # Concat emb & pos
             # print(ocr_embedding_output.shape)

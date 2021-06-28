@@ -187,7 +187,8 @@ def convert_predi_to_tsv_oscar(predictions, dataset, output_folder, data_subset,
             yield image_key, json.dumps(cur_d)
 
     tsv_writer(gen_rows_1(), os.path.join(output_folder, output_tsv_name[:-4] + '.label.tsv'))
-    tsv_writer(gen_rows_2(), os.path.join(output_folder, output_tsv_name[:-4] + '.feature.tsv' ))
+    if 'feature' in data_subset:
+        tsv_writer(gen_rows_2(), os.path.join(output_folder, output_tsv_name[:-4] + '.feature.tsv' ))
 
 
 def inference(model, cfg, data_loader, dataset_name, iou_types=("bbox",), box_only=False, bbox_aug=False, device="cuda", expected_results=(),
