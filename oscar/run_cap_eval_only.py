@@ -18,7 +18,7 @@ from oscar.utils.logger import setup_logger
 from oscar.utils.tsv_file import TSVFile
 from oscar.utils.tsv_file_ops import (tsv_writer, concat_tsv_files, delete_tsv_files, reorder_tsv_keys)
 from oscar.utils.misc import (mkdir, set_seed, load_from_yaml_file, find_file_path_in_yaml)
-from oscar.utils.caption_evaluate import (evaluate_on_coco_caption, ScstRewardCriterion)
+from oscar.utils.caption_evaluate import (evaluate_on_coco_caption, ScstRewardCriterion, convert_tsv_to_coco_format)
 from oscar.utils.cbs import ConstraintFilter, ConstraintBoxesReader
 from oscar.utils.cbs import FiniteStateMachineBuilder
 from oscar.modeling.modeling_bert import BertForImageCaptioning, BertForImageCaptioningOCR
@@ -320,7 +320,7 @@ class CaptionoLiveDataset(Dataset):
         feats_np = np.asarray(feats)
         scores_np = np.asarray(scores)
 
-        print(rects_np.shape, feats_np.shape, scores_np.shape)
+        # print(rects_np.shape, feats_np.shape, scores_np.shape)
 
         # Add positional info
         features_pos = np.zeros((len(feats_np), 2048 + 6), dtype=np.float32)
@@ -1118,6 +1118,10 @@ def test(args, test_dataloader, model, tokenizer, predict_file):
         logger.info(f'Inference model computing time: {time_meter / (step+1)} seconds per batch')
 
     tsv_writer(gen_rows(), cache_file)
+
+    evaluate_file = get_evaluate_file(predict_file)
+    convert_tsv_to_coco_format(predict_file, evaluate_file)
+
     if world_size > 1:
         torch.distributed.barrier()
 
