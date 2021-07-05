@@ -23,5 +23,5 @@ python oscar/run_captioning.py \
 --drop_worst_after=20000 \
 --logging_steps=200 \
 --save_steps=2000 \
---output_dir=../output/coco_my_vvl_xe_new27_06/ \
+--output_dir=../output/coco_my_vvl_xe_new28_06/ \
 --fp16

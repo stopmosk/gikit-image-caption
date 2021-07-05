@@ -1,6 +1,6 @@
 python oscar/run_captioning.py \
---model_name_or_path=../output/coco_my_vvl_xe_new27_06/checkpoint-17-52000 \
---data_dir=../datasets/coco_my_oscar_vvl_tags \
+--model_name_or_path=../output/scst_my/checkpoint-4-174000 \
+--data_dir=/hdd/sergeishutov/imagecaption/oscar/datasets/coco_my_oscar_vvl_tags \
 --do_train \
 --evaluate_during_training \
 --do_lower_case \
@@ -14,5 +14,5 @@ python oscar/run_captioning.py \
 --num_workers=6 \
 --logging_steps=100 \
 --save_steps=2000 \
---output_dir=../output/scst_my/ \
+--output_dir=../output/scst_my_resume/ \
 --fp16
