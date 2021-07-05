@@ -64,5 +64,5 @@ Output ```.tsv``` and ```.json``` with the results will be in model folder.
 ```bash
 python ./oscar/compute_cider.py --pred_file=<PREDICTION> --caption_file=<ORIG_CAPTIONS>
 # Example:
-python ./oscar/compute_cider.py --pred_file=../pred.json --caption_file=../val_caption_coco_format.json
+python ./oscar/compute_cider.py --pred_file=pred.coco_caption.val.beam1.max20.odlabels_coco_format.json --caption_file=val_caption_coco_format.json
 ```
