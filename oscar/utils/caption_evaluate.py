@@ -67,9 +67,11 @@ def evaluate_on_coco_caption(res_file, label_file, outfile=None):
         res_file_coco = op.splitext(res_file)[0] + '_coco_format.json'
         convert_tsv_to_coco_format(res_file, res_file_coco)
     else:
-        raise ValueError('unknown prediction result file format: {}'.format(res_file))
+        res_file_coco = res_file
+        # raise ValueError('unknown prediction result file format: {}'.format(res_file))
 
     coco = COCO(label_file)
+    print(res_file_coco)
     cocoRes = coco.loadRes(res_file_coco)
     cocoEval = COCOEvalCap(coco, cocoRes, 'corpus')
 

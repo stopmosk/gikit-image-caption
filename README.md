@@ -43,11 +43,11 @@ cd ..
 
 [Detector model](https://drive.google.com/file/d/11YdV_4yLx3W0oKDFgk0yzAd-bP2fY-EZ/view?usp=sharing)
 
-Unzip and put in ```sgg_bench/models/vinvl/vg/```.
+Unzip and put **detector model** in ```sgg_bench/models/vinvl/vg/```.
 
 [Main model checkpoint](https://drive.google.com/file/d/1Pu5wY84h5b3-jSLd2wLTmjvh3tqQS796/view?usp=sharing)
 
-Unzip and put in ```../models/```
+Unzip and put **main model** in ```../models/```
 
 # Inference
 
@@ -58,3 +58,11 @@ Put your images in ```<DATA_DIR>/images``` subfolder and run:
 ```
 
 Output ```.tsv``` and ```.json``` with the results will be in model folder.
+
+# Compute CIDEr
+
+```bash
+python ./oscar/compute_cider.py --pred_file=<PREDICTION> --caption_file=<ORIG_CAPTIONS>
+# Example:
+python ./oscar/compute_cider.py --pred_file=../pred.json --caption_file=../val_caption_coco_format.json
+```
