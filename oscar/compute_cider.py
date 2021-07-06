@@ -14,15 +14,37 @@ def main():
 
     args = parser.parse_args()
     
-    with open(args.caption_file) as f:
-        val_ann = json.load(f)
+#     with open(args.caption_file) as f:
+#         val_ann = json.load(f)
         
-    new_cap_filename = args.caption_file[:-5] + '_exp.json'
+#     new_cap_filename = args.caption_file[:-5] + '_exp.json'
     
-    with open(new_cap_filename), 'w') as f:
-        json.dump(val_ann['annotations'], f)
+#     idim = []
+#     for ann in val_ann['annotations']:
+#         idim.append({'id': str(ann['image_id']), 'file_name': str(ann['image_id'])})
+    
+#     with open(new_cap_filename, 'w') as f:
+#         json.dump({'annotations': val_ann['annotations'],
+#                   'images': idim,
+#                   'type': 'captions', 'info': 'dummy', 'licenses': 'dummy'}, f)
+#         #json.dump(val_ann, f)
 
-    result = evaluate_on_coco_caption(args.pred_file, new_cap_filename)
+        
+#     with open(args.pred_file) as f:
+#         pred_ann = json.load(f)
+        
+#     for pred in pred_ann:
+#         img_id = str(int(pred['image_id'][-12:-4]))
+#         pred['image_id'] = img_id
+        
+#     new_pred_filename = args.pred_file[:-5] + '_exp.json'
+
+#     with open(new_pred_filename, 'w') as f:
+#         json.dump(pred_ann, f)
+
+    new_pred_filename = args.pred_file
+    new_cap_filename = args.caption_file
+    result = evaluate_on_coco_caption(new_pred_filename, new_cap_filename)
     print('Done.')
     
     
