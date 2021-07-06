@@ -4,7 +4,34 @@ import os
 import os.path as op
 import json
 
-from oscar.utils.caption_evaluate import evaluate_on_coco_caption
+from coco_caption.pycocotools.coco import COCO
+from coco_caption.pycocoevalcap.eval import COCOEvalCap
+
+
+def evaluate_on_coco_caption(res_file, label_file, outfile=None):
+    assert label_file.endswith('.json')
+    res_file_coco = res_file
+
+    coco = COCO(label_file)
+    print(res_file_coco)
+    cocoRes = coco.loadRes(res_file_coco)
+    cocoEval = COCOEvalCap(coco, cocoRes, 'corpus')
+
+    # evaluate on a subset of images by setting
+    # cocoEval.params['image_id'] = cocoRes.getImgIds()
+    # please remove this line when evaluating the full validation set
+    cocoEval.params['image_id'] = cocoRes.getImgIds()
+
+    # evaluate results
+    # SPICE will take a few minutes the first time, but speeds up due to caching
+    cocoEval.evaluate()
+    result = cocoEval.eval
+    if not outfile:
+        print(result)
+    else:
+        with open(outfile, 'w') as fp:
+            json.dump(result, fp, indent=4)
+    return result
 
 
 def main():
