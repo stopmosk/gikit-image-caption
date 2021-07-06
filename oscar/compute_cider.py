@@ -8,7 +8,7 @@ from coco_caption.pycocotools.coco import COCO
 from coco_caption.pycocoevalcap.eval import COCOEvalCap
 
 
-def evaluate_on_coco_caption(res_file, label_file, outfile=None):
+def evaluate_on_coco_caption(res_file, label_file, orig_coco, outfile=None):
     assert label_file.endswith('.json')
     res_file_coco = res_file
 
@@ -20,7 +20,8 @@ def evaluate_on_coco_caption(res_file, label_file, outfile=None):
     # evaluate on a subset of images by setting
     # cocoEval.params['image_id'] = cocoRes.getImgIds()
     # please remove this line when evaluating the full validation set
-    cocoEval.params['image_id'] = cocoRes.getImgIds()
+    if not orig_coco:
+        cocoEval.params['image_id'] = cocoRes.getImgIds()
 
     # evaluate results
     # SPICE will take a few minutes the first time, but speeds up due to caching
@@ -38,42 +39,45 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--pred_file', type=str, required=True)
     parser.add_argument('--caption_file', type=str, required=True)
+    parser.add_argument('--orig_coco', default=False, action='store_true', help='True for Original COCO, False for karpathy split')
 
     args = parser.parse_args()
     
-#     with open(args.caption_file) as f:
-#         val_ann = json.load(f)
+    if args.orig_coco:
         
-#     new_cap_filename = args.caption_file[:-5] + '_exp.json'
-    
-#     idim = []
-#     for ann in val_ann['annotations']:
-#         idim.append({'id': str(ann['image_id']), 'file_name': str(ann['image_id'])})
-    
-#     with open(new_cap_filename, 'w') as f:
-#         json.dump({'annotations': val_ann['annotations'],
-#                   'images': idim,
-#                   'type': 'captions', 'info': 'dummy', 'licenses': 'dummy'}, f)
-#         #json.dump(val_ann, f)
+        # Convert original annotations
 
-        
-#     with open(args.pred_file) as f:
-#         pred_ann = json.load(f)
-        
-#     for pred in pred_ann:
-#         img_id = str(int(pred['image_id'][-12:-4]))
-#         pred['image_id'] = img_id
-        
-#     new_pred_filename = args.pred_file[:-5] + '_exp.json'
+        new_cap_filename = args.caption_file[:-5] + '_exp.json'
+        with open(args.caption_file) as f:
+            val_ann = json.load(f)
 
-#     with open(new_pred_filename, 'w') as f:
-#         json.dump(pred_ann, f)
+        idim = []
+        for ann in val_ann['annotations']:
+            idim.append({'id': ann['image_id'], 'file_name': ann['image_id']})
 
-    new_pred_filename = args.pred_file
-    new_cap_filename = args.caption_file
-    result = evaluate_on_coco_caption(new_pred_filename, new_cap_filename)
+        with open(new_cap_filename, 'w') as f:
+            json.dump({'annotations': val_ann['annotations'], 'images': idim, 'type': 'captions', 'info': 'dummy', 'licenses': 'dummy'}, f)
+
+        # Convert predictions
+
+        new_pred_filename = args.pred_file[:-5] + '_exp.json'
+        with open(args.pred_file) as f:
+            pred_ann = json.load(f)
+
+        for pred in pred_ann:
+            img_id = int(pred['image_id'][-12:-4])
+            pred['image_id'] = img_id
+
+        with open(new_pred_filename, 'w') as f:
+            json.dump(pred_ann, f)
+            
+    else:
+        new_pred_filename = args.pred_file
+        new_cap_filename = args.caption_file
+        
+    result = evaluate_on_coco_caption(new_pred_filename, new_cap_filename, orig_coco=args.orig_coco)
     print('Done.')
-    
+
     
 if __name__ == '__main__':
     #  python ./oscar/compute_cider.py --pred_file=../pred.json --caption_file=../val_caption_coco_format.json
