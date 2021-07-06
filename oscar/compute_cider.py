@@ -13,8 +13,16 @@ def main():
     parser.add_argument('--caption_file', type=str, required=True)
 
     args = parser.parse_args()
+    
+    with open(args.caption_file) as f:
+        val_ann = json.load(f)
+        
+    new_cap_filename = args.caption_file[:-5] + '_exp.json'
+    
+    with open(new_cap_filename), 'w') as f:
+        json.dump(val_ann['annotations'], f)
 
-    result = evaluate_on_coco_caption(args.pred_file, args.caption_file)
+    result = evaluate_on_coco_caption(args.pred_file, new_cap_filename)
     print('Done.')
     
     
