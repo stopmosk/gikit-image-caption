@@ -161,6 +161,12 @@ class BertImgModelOCR(BertPreTrainedModel):
 
         # img_feature_type is 'frcnn' Faster R-CNN
         self.img_embedding = nn.Linear(self.img_dim, self.config.hidden_size, bias=True)
+        
+        w = torch.zeros(self.config.hidden_size, self.ocr_dim)
+        w.fill_diagonal_(1)
+        self.ocr_projection.weight.data = w
+        self.ocr_projection.bias.data.fill_(0)
+
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         if self.use_img_layernorm:
             self.LayerNorm = BertLayerNorm(config.hidden_size, eps=config.img_layer_norm_eps)
@@ -253,6 +259,7 @@ class BertImgModelOCR(BertPreTrainedModel):
             # print(ocr_embedding_output.shape)
             # print(input_ocr_posits) #.shape) #
 
+            # POS ENC
             ocr_embedding_output = torch.cat((ocr_embedding_output, input_ocr_posits), 2)  # Concat emb & pos
             # print(ocr_embedding_output.shape)
             ocr_embedding_output = self.ocr_projection(ocr_embedding_output)
