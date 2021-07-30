@@ -295,7 +295,7 @@ class CaptionoLiveDataset(Dataset):
         self.kwargs = kwargs
 
         self.img_subdir = op.join(data_dir, 'images')
-        self.img_filenames = [f for f in sorted(os.listdir(self.img_subdir)) if f.endswith('.jpg')]
+        self.img_filenames = [f for f in sorted(os.listdir(self.img_subdir)) if f.endswith('.jpg') or f.endswith('.jpeg') or f.endswith('.png')]
         # print(self.img_filenames)
 
         self.vinvl = VinVLDetector()
