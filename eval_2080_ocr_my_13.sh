@@ -7,4 +7,6 @@ python oscar/run_captioning.py \
 --num_workers=6 \
 --num_beams=5 \
 --max_gen_length=20 \
---eval_model_dir=../output/txtcps_xe_clro_posenc_roz_pos_xywh/checkpoint-79-182960
+--eval_model_dir=../output/coco_my_vvl_ocr_xe_2/checkpoint-51-152000
+
+#--eval_model_dir=../output/txtcps_xe_clro_posenc_roz_pos_xywh/checkpoint-79-182960

@@ -5,10 +5,12 @@ python oscar/run_captioning.py \
 --do_train \
 --evaluate_during_training \
 --data_dir=../datasets/coco_my_oscar_vvl_tags \
+--model_name_or_path1=../output/txtcps_xe_clro_posenc_ros_pos_xywh/checkpoint-79-182960 \
 --model_name_or_path=../pretrained_models/image_captioning/coco_captioning_base_scst/checkpoint-15-66405 \
 --do_lower_case \
 --add_od_labels \
---max_ocr_seq_length=10 \
+--add_ocr_labels \
+--max_ocr_seq_length=40 \
 --learning_rate=0.00001 \
 --per_gpu_train_batch_size=48 \
 --per_gpu_eval_batch_size=60 \
@@ -23,5 +25,5 @@ python oscar/run_captioning.py \
 --drop_worst_after=20000 \
 --logging_steps=200 \
 --save_steps=2000 \
---output_dir=../output/coco_my_vvl_xe_new28_06/ \
+--output_dir=../output/coco_my_vvl_ocr_xe_2/ \
 --fp16

@@ -1358,6 +1358,7 @@ def main():
     parser.add_argument('--test_yaml', default='test.yaml', type=str, required=False, help='yaml file for testing.')
     parser.add_argument('--val_yaml', default='val.yaml', type=str, required=False, help='yaml file used for validation during training.')
     parser.add_argument('--model_name_or_path', default=None, type=str, required=False, help='Path to pre-trained model or model type.')
+    parser.add_argument('--model_name_or_path1', default=None, type=str, required=False)
     parser.add_argument('--output_dir', default='output/', type=str, required=False, help='The output directory to save checkpoint and test results.')
     parser.add_argument('--config_name', default='', type=str, help='Pretrained config name or path if not the same as model_name.')
     parser.add_argument('--do_train', action='store_true', help='Whether to run training.')
