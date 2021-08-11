@@ -21,6 +21,7 @@ python setup.py build develop
 
 # VinVL
 ```bash
+sudo apt update && sudo apt install ffmpeg libsm6 libxext6
 pip install ninja yacs==0.1.8 cityscapesscripts opencv-python
 conda install -c conda-forge pycocotools
 
