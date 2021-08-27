@@ -46,11 +46,12 @@ def compute_on_dataset(model, data_loader, device, bbox_aug, output_folder, labe
     
         for i, batch in enumerate(tqdm(data_loader)):
             images, targets, image_ids, scales = batch[0], batch[1], batch[2], batch[3:]
+            #continue
 
             with torch.no_grad():
                 output = model(images.to(device), targets)
                 output = [o.to(cpu_device) for o in output]
-
+                
             for img_id, result in zip(image_ids, output):
                 idx = img_id
                 prediction = result

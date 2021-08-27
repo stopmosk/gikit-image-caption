@@ -3,8 +3,7 @@
 # Train Oscar+ with CrossEntropyLoss
 python oscar/run_captioning.py \
 --do_train \
---evaluate_during_training \
---data_dir=/mnt/Toshiba2TB/coco_my_oscar_vvl_tags_nms2 \
+--data_dir=/mnt/Toshiba2TB/big_vinvl_oscar \
 --model_name_or_path=../pretrained_models/image_captioning/pretrained_base/checkpoint-2000000 \
 --do_lower_case \
 --add_od_labels \
@@ -20,7 +19,9 @@ python oscar/run_captioning.py \
 --label_smoothing=0.1 \
 --drop_worst_ratio=0.2 \
 --drop_worst_after=20000 \
---logging_steps=100 \
+--logging_steps=200 \
 --save_steps=2000 \
---output_dir=../output/coco_base_ce_vvl_tags_nms2/ \
+--output_dir=../output/union_base_ce/ \
 --fp16
+
+#--evaluate_during_training \

@@ -30,8 +30,8 @@ INPUT:
     MAX_SIZE_TEST: 1000  # longest side
     PIXEL_MEAN: [103.530, 116.280, 123.675]
 DATASETS:
-    FACTORY_TEST: ("ODTSVDataset",)
-    TEST: ("train.yaml",)
+    FACTORY_TEST: ("ODTSVDataset", "ODTSVDataset", "ODTSVDataset",)
+    TEST: ("train.yaml", "val.yaml", "test.yaml",)
     LABELMAP_FILE: "models/vinvl/vg/VG-SGG-dicts-vgoi6-clipped.json"
 DATALOADER:
     NUM_WORKERS: 4
@@ -44,6 +44,6 @@ TEST:
     GATHER_ON_CPU: True
     IGNORE_BOX_REGRESSION: True  # from script
     OUTPUT_FEATURE: True
-OUTPUT_DIR: "../../datasets/big_my_vvl"
-DATA_DIR: "../../datasets/big_my_nn"
+OUTPUT_DIR: "../../datasets/zz"
+DATA_DIR: "../../datasets_proc/zz"
 DISTRIBUTED_BACKEND: 'gloo'

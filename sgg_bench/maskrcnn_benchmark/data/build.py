@@ -187,7 +187,6 @@ def make_data_loader(cfg, is_train=True, is_distributed=False, start_iter=0, is_
             num_workers=num_workers,
             batch_sampler=batch_sampler,
             collate_fn=collator,
-            #pin_memory=True,
         )
         data_loaders.append(data_loader)
     if is_train or is_for_period:

@@ -3,6 +3,7 @@
 import torch
 import torch.nn.functional as F
 from torch import nn
+# import multiprocessing as mp
 
 from maskrcnn_benchmark.structures.bounding_box import BoxList
 from maskrcnn_benchmark.structures.boxlist_ops import boxlist_nms
@@ -51,6 +52,45 @@ class PostProcessor(nn.Module):
         elif self.cfg.MODEL.ROI_HEADS.NMS_FILTER == 2:
             self.filter_method = self.filter_results_fast
 
+            
+    def nms_mp(self, prob, boxes_per_img, image_shape, feature, num_classes, p_num, res_dict):
+        boxlist = self.prepare_boxlist(boxes_per_img, prob, image_shape)
+        boxlist = boxlist.clip_to_image(remove_empty=False)
+        if self.force_boxes:
+            if len(boxlist) > 0:
+                # predict the most likely object in the box
+                # Skip j = 0, because it's the background class
+                scores, labels = torch.max(prob[:, 1:], dim=1)
+                boxlist.extra_fields['scores'] = scores
+                boxlist.add_field('labels', labels + 1)
+                if self.output_feature:
+                    boxlist.add_field('box_features', feature)
+                    boxlist.add_field('scores_all', prob)
+                    boxlist.add_field('boxes_all',
+                                      boxes_per_img.view(-1, 1, 4))
+            else:
+                boxlist = self.prepare_empty_boxlist(boxlist)
+        else:
+            if not self.bbox_aug_enabled:  # If bbox aug is enabled, we will do it later
+                # to enforce minimum number of detections per image
+                # we will do a binary search on the confidence threshold
+                new_boxlist = self.filter_method(boxlist, num_classes, feature)
+
+                if self.cfg.MODEL.ROI_HEADS.NMS_FILTER == 2:
+                    boxlist = new_boxlist
+                else:
+                    initial_conf_thresh = self.score_thresh
+                    decrease_num = 0
+                    while new_boxlist.bbox.shape[0] < self.min_detections_per_img and decrease_num < 10:
+                        self.score_thresh /= 2.0
+                        print(f"\nNumber of proposals {new_boxlist.bbox.shape[0]} is too small, retrying filter_results with score thresh = {self.score_thresh}")
+                        new_boxlist = self.filter_method(boxlist, num_classes, feature)
+                        decrease_num += 1
+                    boxlist = new_boxlist
+                    self.score_thresh = initial_conf_thresh
+        print(p_num)
+        res_dict[p_num] = boxlist
+            
     def forward(self, x, boxes, features):
         """
         Arguments:
@@ -98,6 +138,25 @@ class PostProcessor(nn.Module):
         features = features.split(boxes_per_image, dim=0)
 
         results = []
+
+#         results = dict()
+        
+#         class_prob = tuple([o.cpu() for o in class_prob])
+#         proposals = tuple([o.cpu() for o in proposals])
+#         features = tuple([o.cpu() for o in features])
+
+#         processes = []
+#         for rank, (prob, boxes_per_img, image_shape, feature) in enumerate(zip(class_prob, proposals, image_shapes, features)):
+#             p = mp.Process(target=self.nms_mp, args=(prob, boxes_per_img, image_shape, feature, num_classes, rank, results))
+#             p.start()
+#             processes.append(p)
+
+#         for p in processes:
+#             p.join()
+        
+#         results = [value for (idx, value) in sorted(results.items())]
+#         return results
+    
         for prob, boxes_per_img, image_shape, feature in zip(
             class_prob, proposals, image_shapes, features
         ):
