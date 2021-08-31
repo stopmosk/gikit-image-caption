@@ -8,19 +8,19 @@ import os.path as op
 import random
 import time
 import json
+import yaml
 from tqdm import tqdm
 
 import torch
 import torch.distributed as dist
 from torch.utils.data import Dataset
+from torch.utils.data.sampler import RandomSampler, SequentialSampler
 
 from oscar.utils.logger import setup_logger
 from oscar.utils.tsv_file import TSVFile
 from oscar.utils.tsv_file_ops import (tsv_writer, concat_tsv_files, delete_tsv_files, reorder_tsv_keys)
 from oscar.utils.misc import (mkdir, set_seed, load_from_yaml_file, find_file_path_in_yaml)
 from oscar.utils.caption_evaluate import (evaluate_on_coco_caption, ScstRewardCriterion)
-from oscar.utils.cbs import ConstraintFilter, ConstraintBoxesReader
-from oscar.utils.cbs import FiniteStateMachineBuilder
 from oscar.modeling.modeling_bert import BertForImageCaptioning, BertForImageCaptioningOCR
 from transformers.pytorch_transformers import BertTokenizer, BertConfig
 from transformers.pytorch_transformers import AdamW, WarmupLinearSchedule, WarmupConstantSchedule
@@ -231,51 +231,6 @@ class CaptionTSVDataset(Dataset):
             return len(self.captions)
             # return len(self.image_keys)
         return self.get_valid_tsv().num_rows()
-
-
-class CaptionTSVDatasetWithConstraints(CaptionTSVDataset):
-    r"""
-    Providing inputs for inference with Constraint Beam Search
-
-    nms_threshold: float, optional (default = 0.85)
-        NMS threshold for suppressing generic object class names during constraint filtering,
-        for two boxes with IoU higher than this threshold, "dog" suppresses "animal".
-    max_given_constraints: int, optional (default = 3)
-        Maximum number of constraints which can be specified for CBS decoding. Constraints are
-        selected based on the prediction confidence score of their corresponding bounding boxes.
-    """
-
-    def __init__(self, yaml_file, nms_threshold=0.85, max_given_constraints=3, **kwargs):
-        super().__init__(yaml_file, **kwargs)
-        boxes_tsvpath = find_file_path_in_yaml(self.cfg['cbs_box'], self.root)
-        constraint2tokens_tsvpath = find_file_path_in_yaml(self.cfg['cbs_constraint'], self.root)
-        tokenforms_tsvpath = find_file_path_in_yaml(self.cfg['cbs_tokenforms'], self.root)
-        hierarchy_jsonpath = find_file_path_in_yaml(self.cfg['cbs_hierarchy'], self.root)
-
-        self._boxes_reader = ConstraintBoxesReader(boxes_tsvpath)
-        self._constraint_filter = ConstraintFilter(
-            hierarchy_jsonpath, nms_threshold, max_given_constraints
-        )
-        self._fsm_builder = FiniteStateMachineBuilder(
-            self.tokenizer, constraint2tokens_tsvpath, tokenforms_tsvpath, max_given_constraints
-        )
-
-    def __getitem__(self, index):
-        img_key, example = super().__getitem__(index)
-
-        # Apply constraint filtering to object class names.
-        constraint_boxes = self._boxes_reader[img_key]
-
-        candidates = self._constraint_filter(
-            constraint_boxes['boxes'],
-            constraint_boxes['class_names'],
-            constraint_boxes['scores']
-        )
-
-        num_constraints = len(candidates)
-        fsm, nstates = self._fsm_builder.build(candidates)
-
-        return img_key, example + (fsm, num_constraints, )
 
 
 class CaptionTensorizer(object):
@@ -781,9 +736,7 @@ def build_dataset(yaml_file, tokenizer, args, is_train=True):
         yaml_file = op.join(args.data_dir, yaml_file)
         assert op.isfile(yaml_file)
 
-    dataset_class = CaptionTSVDatasetWithConstraints if args.use_cbs and not is_train else CaptionTSVDataset
-
-    return dataset_class(
+    return CaptionTSVDataset(
         yaml_file,
         tokenizer=tokenizer,
         add_od_labels=args.add_od_labels,
@@ -801,15 +754,31 @@ def build_dataset(yaml_file, tokenizer, args, is_train=True):
 def make_data_sampler(dataset, shuffle, distributed):
     if distributed:
         return torch.utils.data.distributed.DistributedSampler(dataset, shuffle=shuffle)
-    if shuffle:
-        sampler = torch.utils.data.sampler.RandomSampler(dataset)
+    return RandomSampler(dataset) if shuffle else SequentialSampler(dataset)
+
+
+def make_data_loader(args, yaml_file, tokenizer, is_distributed=True, is_train=True, agg_dataset=False):
+    if agg_dataset:
+        # Open yaml
+        if not op.isfile(yaml_file):
+            yaml_file = op.join(args.data_dir, yaml_file)
+            assert op.isfile(yaml_file)
+        with open(yaml_file, 'r') as fp:
+            datasets_cfg = yaml.load(fp, Loader=yaml.FullLoader)
+
+        # Read dataset's yaml paths and oversample counts
+        sampled_datasets_list = []
+        for ds_item in  datasets_cfg.values():
+            sub_yaml = op.join(ds_item['path'], 'train.yaml')
+            sub_dataset = build_dataset(sub_yaml, tokenizer, args, is_train=(is_train and not args.scst))
+            # Apply sampling politic
+            for i in range(ds_item['oversample']):
+                sampled_datasets_list.append(sub_dataset)
+
+        # Concatenate datasets
+        dataset = torch.utils.data.ConcatDataset(sampled_datasets_list)
     else:
-        sampler = torch.utils.data.sampler.SequentialSampler(dataset)
-    return sampler
-
-
-def make_data_loader(args, yaml_file, tokenizer, is_distributed=True, is_train=True):
-    dataset = build_dataset(yaml_file, tokenizer, args, is_train=(is_train and not args.scst))
+        dataset = build_dataset(yaml_file, tokenizer, args, is_train=(is_train and not args.scst))
 
     if is_train:
         shuffle = True
@@ -1210,12 +1179,6 @@ def test(args, test_dataloader, model, tokenizer, predict_file):
                     inputs['input_ocr_ids'] = batch[5]
                     inputs['input_ocr_posits'] = batch[6]
 
-                if args.use_cbs:
-                    raise NotImplementedError
-                    inputs.update({
-                        'fsm': batch[5],
-                        'num_constraints': batch[6],
-                    })
                 inputs.update(inputs_param)
                 tic = time.time()
                 # captions, logprobs
@@ -1356,9 +1319,10 @@ def ensure_init_process_group(local_rank=None, port=12345):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_dir', default='datasets/coco_caption', type=str, required=False, help='The input data dir with all required files.')
+    # parser.add_argument('--train_agg_yaml', default='train_agg.yaml', type=str, required=False, help='yaml file containing links to other training yamls and their paths.')
     parser.add_argument('--train_yaml', default='train.yaml', type=str, required=False, help='yaml file for training.')
-    parser.add_argument('--test_yaml', default='test.yaml', type=str, required=False, help='yaml file for testing.')
     parser.add_argument('--val_yaml', default='val.yaml', type=str, required=False, help='yaml file used for validation during training.')
+    parser.add_argument('--test_yaml', default='test.yaml', type=str, required=False, help='yaml file for testing.')
     parser.add_argument('--model_name_or_path', default=None, type=str, required=False, help='Path to pre-trained model or model type.')
     parser.add_argument('--model_name_or_path1', default=None, type=str, required=False)
     parser.add_argument('--output_dir', default='output/', type=str, required=False, help='The output directory to save checkpoint and test results.')
@@ -1366,6 +1330,7 @@ def main():
     parser.add_argument('--do_train', action='store_true', help='Whether to run training.')
     parser.add_argument('--do_test', action='store_true', help='Whether to run inference.')
     parser.add_argument('--do_eval', action='store_true', help='Whether to run evaluation.')
+    parser.add_argument('--agg_dataset', action='store_true', help='Use aggregated dataset.')
     parser.add_argument('--add_od_labels', default=False, action='store_true', help='Whether to add object detection labels or not')
 
     # OCR
@@ -1470,14 +1435,12 @@ def main():
 
     # Load pretrained model and tokenizer
     checkpoint = None
-    config_class = BertConfig
     model_class = BertForImageCaptioningOCR if args.add_ocr_labels else BertForImageCaptioning
-    tokenizer_class = BertTokenizer
 
     if args.do_train:
         assert args.model_name_or_path is not None
 
-        config = config_class.from_pretrained(
+        config = BertConfig.from_pretrained(
             args.config_name if args.config_name else args.model_name_or_path,
             num_labels=args.num_labels,
             finetuning_task='image_captioning'
@@ -1499,7 +1462,7 @@ def main():
             # avoid using too much memory
             config.output_hidden_states = True
 
-        tokenizer = tokenizer_class.from_pretrained(
+        tokenizer = BertTokenizer.from_pretrained(
             args.tokenizer_name if args.tokenizer_name else args.model_name_or_path,
             do_lower_case=args.do_lower_case
         )
@@ -1512,19 +1475,19 @@ def main():
     else:
         checkpoint = args.eval_model_dir
         assert op.isdir(checkpoint)
-        config = config_class.from_pretrained(checkpoint)
+        config = BertConfig.from_pretrained(checkpoint)
         config.add_ocr_labels = args.add_ocr_labels
         print(config.add_ocr_labels)
         config.ocr_dim = args.ocr_dim
         config.output_hidden_states = args.output_hidden_states
-        tokenizer = tokenizer_class.from_pretrained(checkpoint)
+        tokenizer = BertTokenizer.from_pretrained(checkpoint)
         logger.info(f'Evaluate the following checkpoint: {checkpoint}')
         model = model_class.from_pretrained(checkpoint, config=config)
 
     model.to(args.device)
     logger.info(f'Training/evaluation parameters {args}', )
     if args.do_train:
-        train_dataloader = make_data_loader(args, args.train_yaml, tokenizer, args.distributed, is_train=True)
+        train_dataloader = make_data_loader(args, args.train_yaml, tokenizer, args.distributed, is_train=True, agg_dataset=args.agg_dataset)
         val_dataloader = None
         if args.evaluate_during_training:
             val_dataloader = make_data_loader(args, args.val_yaml, tokenizer, args.distributed, is_train=False)
