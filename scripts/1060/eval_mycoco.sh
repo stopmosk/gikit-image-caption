@@ -11,7 +11,9 @@ python oscar/run_captioning.py \
 --num_beams=1 \
 --max_gen_length=20 \
 --output_dir=../output/tmp_results \
---eval_model_dir=../output/agg_coco_textcaps_cleaned_1/checkpoint-4-390000
+--eval_model_dir=../output/txtcps_cleaned_base_xe_pos/checkpoint-77-111000
+
+#--eval_model_dir=../output/agg_coco_textcaps_cleaned_1/checkpoint-4-390000
 #--eval_model_dir=../output/txtcps_cleaned_base_xe1/checkpoint-50-73000
 
 
