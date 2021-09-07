@@ -734,6 +734,7 @@ class CaptionTensorizerOCR(object):
 def build_dataset(yaml_file, tokenizer, args, is_train=True):
     if not op.isfile(yaml_file):
         yaml_file = op.join(args.data_dir, yaml_file)
+        # print(yaml_file)
         assert op.isfile(yaml_file)
 
     return CaptionTSVDataset(
@@ -768,22 +769,24 @@ def make_data_loader(args, yaml_file, tokenizer, is_distributed=True, is_train=T
 
         # Read dataset's yaml paths and oversample counts
         sampled_datasets_list = []
-        for ds_item in  datasets_cfg.values():
-            sub_yaml = op.join(ds_item['path'], 'train.yaml')
+        for ds_item in datasets_cfg.values():
+            sub_yaml = ds_item['path']  # op.join(ds_item['path'], 'train.yaml')
             sub_dataset = build_dataset(sub_yaml, tokenizer, args, is_train=(is_train and not args.scst))
             # Apply sampling politic
             for i in range(ds_item['oversample']):
                 sampled_datasets_list.append(sub_dataset)
 
         # Concatenate datasets
+        print('Datasets lenghs:', [len(d) for d in sampled_datasets_list])
         dataset = torch.utils.data.ConcatDataset(sampled_datasets_list)
+        print('Final datasets len:', len(dataset))
     else:
         dataset = build_dataset(yaml_file, tokenizer, args, is_train=(is_train and not args.scst))
 
     if is_train:
         shuffle = True
-        print('RESET SHUFFLE TO FALSE!')
-        shuffle = False
+        # print('RESET SHUFFLE TO FALSE!')
+        # shuffle = False
         images_per_gpu = args.per_gpu_train_batch_size
         images_per_batch = images_per_gpu * get_world_size()
         iters_per_epoch = len(dataset) // images_per_batch   # num of batches per all dataset
