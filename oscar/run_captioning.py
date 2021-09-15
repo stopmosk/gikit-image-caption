@@ -785,8 +785,8 @@ def make_data_loader(args, yaml_file, tokenizer, is_distributed=True, is_train=T
 
     if is_train:
         shuffle = True
-        # print('RESET SHUFFLE TO FALSE!')
-        # shuffle = False
+        print('RESET SHUFFLE TO FALSE!')
+        shuffle = False
         images_per_gpu = args.per_gpu_train_batch_size
         images_per_batch = images_per_gpu * get_world_size()
         iters_per_epoch = len(dataset) // images_per_batch   # num of batches per all dataset

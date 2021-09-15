@@ -10,6 +10,8 @@ python oscar/run_cap_eval_only.py \
 --num_beams=5 \
 --max_gen_length=20 \
 --output_dir=../output/results \
---eval_model_dir=../models/checkpoint-13-256000
+--eval_model_dir=$2
 
+#--eval_model_dir=../models/checkpoint-9-204000
+#--eval_model_dir=../models/checkpoint-13-256000
 #--eval_model_dir=../models/checkpoint-22-628000
