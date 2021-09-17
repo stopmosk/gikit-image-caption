@@ -734,7 +734,7 @@ class CaptionTensorizerOCR(object):
 def build_dataset(yaml_file, tokenizer, args, is_train=True):
     if not op.isfile(yaml_file):
         yaml_file = op.join(args.data_dir, yaml_file)
-        # print(yaml_file)
+        print('Error buildind dataset from yaml file:', yaml_file)
         assert op.isfile(yaml_file)
 
     return CaptionTSVDataset(
@@ -785,8 +785,8 @@ def make_data_loader(args, yaml_file, tokenizer, is_distributed=True, is_train=T
 
     if is_train:
         shuffle = True
-        print('RESET SHUFFLE TO FALSE!')
-        shuffle = False
+        #print('RESET SHUFFLE TO FALSE!')
+        #shuffle = False
         images_per_gpu = args.per_gpu_train_batch_size
         images_per_batch = images_per_gpu * get_world_size()
         iters_per_epoch = len(dataset) // images_per_batch   # num of batches per all dataset
