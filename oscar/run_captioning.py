@@ -778,6 +778,8 @@ def make_data_loader(args, yaml_file, tokenizer, is_distributed=True, is_train=T
 
         # Concatenate datasets
         print('Datasets lenghs:', [len(d) for d in sampled_datasets_list])
+        dsl = ' '.join([str(len(d)) for d in sampled_datasets_list])
+        logger.info(f'Dataset lengths: {dsl}')
         dataset = torch.utils.data.ConcatDataset(sampled_datasets_list)
         print('Final datasets len:', len(dataset))
     else:

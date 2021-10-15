@@ -13,8 +13,8 @@ python oscar/run_captioning.py \
 --per_gpu_train_batch_size=72 \
 --per_gpu_eval_batch_size=128 \
 --gradient_accumulation_steps=1 \
---num_train_epochs=4 \
---num_workers=6 \
+--num_train_epochs=10 \
+--num_workers=0 \
 --warmup_steps=10000 \
 --tie_weights \
 --freeze_embedding \
