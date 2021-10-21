@@ -8,13 +8,13 @@ python oscar/run_captioning.py \
 --model_name_or_path=../pretrained_models/image_captioning/pretrained_large/checkpoint-1410000 \
 --do_lower_case \
 --add_od_labels \
---learning_rate=0.00001 \
+--learning_rate=0.00005 \
 --per_gpu_train_batch_size=14 \
 --per_gpu_eval_batch_size=96 \
 --gradient_accumulation_steps=1 \
---num_train_epochs=4 \
+--num_train_epochs=14 \
 --num_workers=6 \
---warmup_steps=10000 \
+--warmup_steps=2000 \
 --tie_weights \
 --freeze_embedding \
 --label_smoothing=0.1 \
@@ -24,6 +24,5 @@ python oscar/run_captioning.py \
 --save_steps=10000 \
 --output_dir=../output/cc_large_xe/ \
 --fp16
-
 
 #--evaluate_during_training \
