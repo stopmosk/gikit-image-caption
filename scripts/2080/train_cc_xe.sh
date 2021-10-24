@@ -3,8 +3,7 @@
 # Train Oscar+ with CrossEntropyLoss
 python oscar/run_captioning.py \
 --do_train \
---evaluate_during_training \
---data_dir=/mnt/Toshiba2TB/cc_vvl_nms1 \
+--data_dir=/mnt/ssd/cc_vvl_nms1 \
 --model_name_or_path=../pretrained_models/image_captioning/pretrained_base/checkpoint-2000000 \
 --do_lower_case \
 --add_od_labels \
@@ -13,7 +12,7 @@ python oscar/run_captioning.py \
 --per_gpu_eval_batch_size=128 \
 --gradient_accumulation_steps=1 \
 --num_train_epochs=80 \
---num_workers=6 \
+--num_workers=0 \
 --warmup_steps=2000 \
 --tie_weights \
 --freeze_embedding \
