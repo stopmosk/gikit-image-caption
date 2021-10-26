@@ -734,7 +734,7 @@ class CaptionTensorizerOCR(object):
 def build_dataset(yaml_file, tokenizer, args, is_train=True):
     if not op.isfile(yaml_file):
         yaml_file = op.join(args.data_dir, yaml_file)
-        print('Error buildind dataset from yaml file:', yaml_file)
+        #print('Error buildind dataset from yaml file:', yaml_file)
         assert op.isfile(yaml_file)
 
     return CaptionTSVDataset(
