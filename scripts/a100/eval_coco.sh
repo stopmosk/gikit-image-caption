@@ -5,8 +5,9 @@ python -m torch.distributed.launch --nproc_per_node=8 oscar/run_captioning.py \
 --num_workers=16 \
 --num_beams=5 \
 --max_gen_length=20 \
---eval_model_dir=../output/coco_large_xe_1.274_scst/checkpoint-23-17150
-#--eval_model_dir=../output/coco_large_xe_1.274_scst/checkpoint-21-15400
+--eval_model_dir=../output/coco_large_xe_1.274_scst_1_17725/checkpoint-7-5250
+
+#--eval_model_dir=../output/coco_large_xe_1.274_scst_1/checkpoint-23-17150
 
 #--eval_model_dir=../output/coco_large_xe_1.27/checkpoint-59-66000
 

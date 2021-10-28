@@ -734,7 +734,7 @@ class CaptionTensorizerOCR(object):
 def build_dataset(yaml_file, tokenizer, args, is_train=True):
     if not op.isfile(yaml_file):
         yaml_file = op.join(args.data_dir, yaml_file)
-        #print('Error buildind dataset from yaml file:', yaml_file)
+        print('Buildind dataset from yaml file:', yaml_file)
         assert op.isfile(yaml_file)
 
     return CaptionTSVDataset(
@@ -780,7 +780,10 @@ def make_data_loader(args, yaml_file, tokenizer, is_distributed=True, is_train=T
         print('Datasets lenghs:', [len(d) for d in sampled_datasets_list])
         dsl = ' '.join([str(len(d)) for d in sampled_datasets_list])
         logger.info(f'Dataset lengths: {dsl}')
-        dataset = torch.utils.data.ConcatDataset(sampled_datasets_list)
+        if is_train:
+            dataset = torch.utils.data.ConcatDataset(sampled_datasets_list)
+        else:
+            dataset = sampled_datasets_list[0]
         print('Final datasets len:', len(dataset))
     else:
         dataset = build_dataset(yaml_file, tokenizer, args, is_train=(is_train and not args.scst))
@@ -1507,7 +1510,7 @@ def main():
     # inference and evaluation
     elif args.do_test or args.do_eval:
         logger.info('Evaluate on dataset: ' + args.test_yaml)
-        test_dataloader = make_data_loader(args, args.test_yaml, tokenizer, args.distributed, is_train=False)
+        test_dataloader = make_data_loader(args, args.test_yaml, tokenizer, args.distributed, is_train=False, agg_dataset=args.agg_dataset)
 
         if not args.do_eval:
             predict_file = get_predict_file(checkpoint, test_dataloader.dataset.yaml_file, args)
