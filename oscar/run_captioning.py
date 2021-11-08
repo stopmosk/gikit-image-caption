@@ -1224,7 +1224,7 @@ def test(args, test_dataloader, model, tokenizer, predict_file):
 
                     # print(res)
 
-                    yield img_key, json.dumps(res)
+                    yield img_key, json.dumps(res, ensure_ascii=False)
 
         logger.info(f'Inference model computing time: {time_meter / (step+1)} seconds per batch')
 
