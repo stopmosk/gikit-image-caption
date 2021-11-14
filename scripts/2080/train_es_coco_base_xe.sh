@@ -21,7 +21,7 @@ python oscar/run_captioning.py \
 --drop_worst_after=20000 \
 --logging_steps=100 \
 --save_steps=2000 \
---output_dir=../output/coco_ru_base_xe \
+--output_dir=../output/coco_es_base_xe \
 --warmup_steps=2000 \
 --fp16
 
