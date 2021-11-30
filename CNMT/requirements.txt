@@ -4,7 +4,7 @@ tensorboardX>=1.2
 #numpy>=1.14
 tqdm>=4.19
 demjson3
-#torchtext==0.8
+torchtext==0.8
 GitPython>=2.1
 PyYAML>=3.11
 pytest>=5.2.0
