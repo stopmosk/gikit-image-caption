@@ -555,11 +555,14 @@ class MMFInstance:
 
 def main():
     print('Load 1/5')
-    ocr_reader = OCRReader(args.ocr_thresh, args.bbox_thresh)
-    print('Load 2/5')
-    feature_extractor = FeatureExtractor(args.image_dir)
-    print('Load 3/5')
-    mmf_inst = MMFInstance()
+    if args.with_ocr:
+        ocr_reader = OCRReader(args.ocr_thresh, args.bbox_thresh)
+        print('Load 2/5')
+        feature_extractor = FeatureExtractor(args.image_dir)
+        print('Load 3/5')
+        mmf_inst = MMFInstance()
+    else:
+        print('Load 2/5\nLoad 3/5')
     print('Load 4/5')
     oscar_inst = OscarLive()
     print('Load 5/5')

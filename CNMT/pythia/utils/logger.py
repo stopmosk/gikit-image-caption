@@ -55,7 +55,7 @@ class Logger:
         # self.logger.setLevel(getattr(logging, level.upper()))
         level = logging.CRITICAL
         self.logger.setLevel(level)
-        print('pythia logger.py logger set by stopmosk')
+        # print('pythia logger.py logger set by stopmosk')
         self._file_only_logger.setLevel(logging.CRITICAL) #getattr(logging, level.upper()))
 
         formatter = logging.Formatter(
