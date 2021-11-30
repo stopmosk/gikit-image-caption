@@ -1,7 +1,8 @@
 #!/bin/bash
 
 pip install gdown
-gdown https://drive.google.com/uc?id=0B7EVK8r0v71pOXBhSUdJWU1MYUk
+
+gdown https://drive.google.com/uc?id=12345678
 
 mkdir ../models
 tar -xzfv models.tar.gz -C ../models
