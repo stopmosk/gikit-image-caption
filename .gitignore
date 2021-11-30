@@ -138,3 +138,5 @@ examples/runs
 # models
 output
 paraphrase-en.gz
+
+CNMT/data/
