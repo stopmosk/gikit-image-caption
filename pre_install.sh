@@ -4,10 +4,6 @@ CUR_DIR=$PWD
 
 sudo apt update && sudo apt install ffmpeg libsm6 libxext6 &&
 
-conda create --name hic python=3.8 -y
-eval "$(conda shell.bash hook)"
-conda activate hic
-
 pip install gdown &&
 
 cd .. &&
