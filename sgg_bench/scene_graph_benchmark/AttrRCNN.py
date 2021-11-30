@@ -9,6 +9,7 @@ from maskrcnn_benchmark.structures.image_list import to_image_list
 from maskrcnn_benchmark.modeling.detector.generalized_rcnn import \
     GeneralizedRCNN
 from .attribute_head.attribute_head import build_roi_attribute_head
+from time import time
 
 
 class AttrRCNN(GeneralizedRCNN):
@@ -66,8 +67,10 @@ class AttrRCNN(GeneralizedRCNN):
                        for target in targets if target is not None]
 
         proposals, proposal_losses = self.rpn(images, features, targets)
-        x, predictions, detector_losses = self.roi_heads(features,
-                                                         proposals, targets)
+        # print('RPN proposals:\n', proposals)
+        # t0 = time()
+        x, predictions, detector_losses = self.roi_heads(features, proposals, targets)
+        # print(time() - t0)
 
         if self.cfg.MODEL.ATTRIBUTE_ON:
             attribute_features = features

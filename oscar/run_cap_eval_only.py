@@ -1,5 +1,3 @@
-# Copyright (c) 2021 Microsoft Corporation. Licensed under the MIT license.
-
 import argparse
 import base64
 import numpy as np
@@ -22,218 +20,14 @@ from oscar.utils.caption_evaluate import (evaluate_on_coco_caption, ScstRewardCr
 from oscar.utils.cbs import ConstraintFilter, ConstraintBoxesReader
 from oscar.utils.cbs import FiniteStateMachineBuilder
 from oscar.modeling.modeling_bert import BertForImageCaptioning, BertForImageCaptioningOCR
-from transformers.pytorch_transformers import BertTokenizer, BertConfig
-from transformers.pytorch_transformers import AdamW, WarmupLinearSchedule, WarmupConstantSchedule
+from transformers1.pytorch_transformers import BertTokenizer, BertConfig
+from transformers1.pytorch_transformers import AdamW, WarmupLinearSchedule, WarmupConstantSchedule
+#from transformers import BertTokenizer, BertConfig
 
 from sgg_bench.tools.demo.demo_image_oscar import VinVLDetector
 
-# --eval_model_dir=../output/coco_dl2/checkpoint-60-66360
-# --eval_model_dir=../output/txtcps_dl2/checkpoint-79-182960
 
-# class CaptionTSVDataset(Dataset):
-#     def __init__(
-#             self,
-#             yaml_file,
-#             tokenizer=None,
-#             add_od_labels=True,
-#             add_ocr_labels=True,
-#             max_img_seq_length=50,
-#             max_seq_length=70,
-#             max_seq_a_length=40,
-#             max_ocr_seq_length=10,
-#             is_train=True,
-#             mask_prob=0.15,
-#             max_masked_tokens=3,
-#             **kwargs
-#     ):
-#         """Constructor.
-#         Args:
-#             yaml file with all required data (image feature, caption, labels, etc)
-#             tokenizer: tokenizer for text processing.
-#             add_od_labels: whether to add labels from yaml file to BERT.
-#             max_img_seq_length: max image sequence length.
-#             max_seq_length: max text sequence length.
-#             max_seq_a_length: max caption sequence length.
-#             is_train: train or test mode.
-#             mask_prob: probability to mask a input token.
-#             max_masked_tokens: maximum number of tokens to be masked in one sentence.
-#             kwargs: other arguments.
-#         """
-#         self.yaml_file = yaml_file
-#         self.cfg = load_from_yaml_file(yaml_file)
-#         self.root = op.dirname(yaml_file)
-#         self.label_file = find_file_path_in_yaml(self.cfg['label'], self.root)
-#         self.feat_file = find_file_path_in_yaml(self.cfg['feature'], self.root)
-#         self.caption_file = find_file_path_in_yaml(self.cfg.get('caption'), self.root)
-#         self.ocr_file = find_file_path_in_yaml(self.cfg.get('ocr'), self.root)
-#
-#         assert op.isfile(self.feat_file)
-#         if add_od_labels:
-#             assert op.isfile(self.label_file)
-#         #if add_ocr_labels:
-#         #    assert op.isfile(self.ocr_file)
-#         if is_train:
-#             assert op.isfile(self.caption_file) and tokenizer is not None
-#
-#         self.label_tsv = None if not self.label_file else TSVFile(self.label_file)
-#         self.feat_tsv = TSVFile(self.feat_file)
-#         self.captions = []
-#         if self.caption_file and op.isfile(self.caption_file):
-#             with open(self.caption_file, 'r') as f:
-#                 self.captions = json.load(f)
-#         self.ocr_blocks = {}
-#         if self.ocr_file and op.isfile(self.ocr_file):
-#             ob_list = []
-#             with open(self.ocr_file, 'r') as f:
-#                 ob_list = json.load(f)
-#             self.ocr_blocks = {el['image_id']: el['data'] for el in ob_list}
-#
-#         self.tokenizer = tokenizer
-#         tensorizer_class = CaptionTensorizerOCR if add_ocr_labels else CaptionTensorizer
-#         self.tensorizer = tensorizer_class(
-#             self.tokenizer, max_img_seq_length, max_seq_length, max_seq_a_length, max_ocr_seq_length,
-#             mask_prob=mask_prob, max_masked_tokens=max_masked_tokens, is_train=is_train,
-#         )
-#         self.add_od_labels = add_od_labels
-#         self.add_ocr_labels = add_ocr_labels
-#         self.is_train = is_train
-#         self.kwargs = kwargs
-#         self.image_keys = self.prepare_image_keys()
-#         self.key2index = self.prepare_image_key_to_index()
-#         self.key2captions = self.prepare_image_key_to_captions()
-#
-#     def get_valid_tsv(self):
-#         # based on the order of file size
-#         if self.label_tsv:
-#             return self.label_tsv
-#         if self.feat_tsv:
-#             return self.feat_tsv
-#
-#     def prepare_image_keys(self):
-#         tsv = self.get_valid_tsv()
-#         return [tsv.seek(i)[0] for i in range(tsv.num_rows())]
-#
-#     def prepare_image_key_to_index(self):
-#         tsv = self.get_valid_tsv()
-#         return {tsv.seek(i)[0]: i for i in range(tsv.num_rows())}
-#
-#     def prepare_image_key_to_captions(self):
-#         if self.captions:
-#             key2captions = {key: [] for key in self.image_keys}
-#             for cap in self.captions:
-#                 key2captions[cap['image_id']].append(cap['caption'])
-#             return key2captions
-#
-#     def get_image_index(self, idx):
-#         if self.is_train:
-#             img_cap_pair = self.captions[idx]
-#             img_key = img_cap_pair['image_id']
-#             return self.key2index[img_key]
-#         return idx
-#
-#     def get_image_key(self, idx):
-#         img_idx = self.get_image_index(idx)
-#         return self.image_keys[img_idx]
-#
-#     def get_image_features(self, img_idx):
-#         feat_info = json.loads(self.feat_tsv.seek(img_idx)[1])
-#         num_boxes = feat_info['num_boxes']
-#         features = np.frombuffer(
-#             base64.b64decode(feat_info['features']), np.float32
-#         ).reshape((num_boxes, -1))
-#         return torch.Tensor(features.copy())  # clone array
-#         # feat_tensor = torch.as_tensor(features)
-#         # return feat_tensor
-#
-#     def get_caption(self, idx):
-#         if self.is_train:
-#             img_cap_pair = self.captions[idx]
-#             return img_cap_pair['caption']
-#         return ''
-#
-#     def get_ocr_labels(self, img_key):
-#         ocr_labels = []
-#         if self.add_ocr_labels and self.ocr_blocks:
-#             img_ocr_blocks = self.ocr_blocks[img_key]  # list of [box, text, conf]
-#             # Get only concatenated text without any processing
-#             # TODO: processing of OCR blocks: boxes, conf
-#             for block in img_ocr_blocks:
-#                 block_text = block[1]
-#                 # print(block_text, end=' + ')
-#                 # if ' ' in block_text:
-#                 #     print(block_text)
-#             # print()
-#             # ocr_labels = ' '.join([b[1] for b in img_ocr_blocks])
-#             ocr_labels = [b[1] for b in img_ocr_blocks]
-#         return ocr_labels
-#
-#     def get_ocr_boxes(self, img_key):
-#         ocr_boxes = []
-#         if self.add_ocr_labels and self.ocr_blocks:
-#             img_ocr_blocks = self.ocr_blocks[img_key]  # list of [box, text, conf]
-#             ocr_boxes = []
-#             for block in img_ocr_blocks:
-#                 # x1, y1, x2, y2, w, h = block[0]
-#                 # w, h = x2 - x1, y2 - y1
-#                 # Make extended bbox with width and height
-#                 # ocr_boxes.append([x1, y1, x2, y2, w, h])
-#                 ocr_boxes.append(block[0])
-#             # ocr_boxes = np.array(ocr_boxes)  # CHECK?
-#         return ocr_boxes
-#
-#     def get_od_labels(self, img_idx):
-#         od_labels = None
-#         if self.add_od_labels:
-#             label_info = json.loads(self.label_tsv.seek(img_idx)[1])
-#             od_labels = ' '.join([el['class'] for el in label_info])
-#         return od_labels
-#
-#     def get_caption_file_in_coco_format(self):
-#         cap_file = op.splitext(self.caption_file)[0] + '_coco_format.json'
-#         return cap_file
-#
-#     def get_captions_by_key(self, key):
-#         return self.key2captions[key]
-#
-#     def __getitem__(self, idx):
-#         img_idx = self.get_image_index(idx)
-#         img_key = self.image_keys[img_idx]
-#         features = self.get_image_features(img_idx)
-#         caption = self.get_caption(idx)
-#         od_labels = self.get_od_labels(img_idx)
-#         ocr_labels = self.get_ocr_labels(self.get_image_key(idx))
-#         ocr_boxes = self.get_ocr_boxes(self.get_image_key(idx))
-#         # print()
-#         # print(img_key)
-#         # print(caption)
-#         # print(od_labels[:80])
-#         # print(ocr_labels)
-#
-#         # print('FEAT x1y1x2y2wh:', features[0, -6:])
-#         # print('LABELrand:', od_labels.split(' ')[0])
-#
-#         if self.add_ocr_labels:
-#             example = self.tensorizer.tensorize_example_v2(
-#                 text_a=caption, img_feat=features, text_b=od_labels, text_c=ocr_labels, text_c_pos=ocr_boxes,
-#             )
-#         else:
-#             example = self.tensorizer.tensorize_example(
-#                 text_a=caption, img_feat=features, text_b=od_labels,
-#             )
-#         # print(ocr_labels)
-#         # print(ocr_boxes)
-#         # print('\n', example[6], flush=True)
-#         # print('\n', example[7], flush=True)
-#
-#         return img_key, example
-#
-#     def __len__(self):
-#         if self.is_train:
-#             return len(self.captions)
-#         return self.get_valid_tsv().num_rows()
-
-
-class CaptionoLiveDataset(Dataset):
+class CaptionLiveDataset(Dataset):
     def __init__(
             self,
             yaml_file,
@@ -304,13 +98,18 @@ class CaptionoLiveDataset(Dataset):
     def get_image_feats_labels(self, img_idx):
         # filename = op.join(self.img_subdir, self.img_filenames[img_idx])
         filename = self.img_filenames[img_idx]
+        full_fname = op.join(self.vinvl.input_dir, filename)
+
+        t0 = time.time()        
         # print(op.join(self.vinvl.input_dir, filename))
         rects, feats, labels, scores = self.vinvl.infer_file(op.join(self.vinvl.input_dir, filename))
+        print(f'VinVL: {time.time() - t0:.3f}  ', end=''); t0 = time.time()
         labels_txt = ' '.join(list(set(labels)))  # Remove duplicates
         # labels_txt = ' '.join(labels)
 
+        # print(labels_txt)
+
         # print(feats)
-        print(labels_txt)
         # return torch.Tensor(features.copy())  # clone array
         # feat_tensor = torch.as_tensor(features)
         # return feat_tensor
@@ -911,7 +710,7 @@ def build_dataset(yaml_file, tokenizer, args, is_train=True):
     #     yaml_file = op.join(args.data_dir, yaml_file)
     #     assert op.isfile(yaml_file)
 
-    return CaptionoLiveDataset(
+    return CaptionLiveDataset(
         yaml_file,
         tokenizer=tokenizer,
         add_od_labels=args.add_od_labels,
@@ -1097,9 +896,17 @@ def test(args, test_dataloader, model, tokenizer, predict_file):
                 # print(args.max_seq_length)
                 # print(inputs)
                 # print(inputs['attention_mask'].shape)
-                outputs = model(**inputs)
+                
+                t0 = time.time()
+                if args.fp16:
+                    with torch.cuda.amp.autocast():
+                        outputs = model(**inputs)
+                else:
+                    outputs = model(**inputs)
+                print(f'BERT: {time.time() - t0:.3f}  ', end=''); t0 = time.time()
+                
                 # print(outputs)
-                # input('ADSDADASd')
+                # input('press any key...')
 
                 time_meter += time.time() - tic
                 all_caps = outputs[0]  # batch_size * num_keep_best * max_len
@@ -1112,7 +919,23 @@ def test(args, test_dataloader, model, tokenizer, predict_file):
                         res.append({'caption': cap, 'conf': conf.item()})
                     if isinstance(img_key, torch.Tensor):
                         img_key = img_key.item()
-                    # print(img_key, res)
+                    #print(img_key, res)
+                    # res_cap = res[0]['caption'] + '                                           '
+                    # print(res_cap[:50], end='    ')
+
+                    # *** NMT ***- translation to another language
+                    
+                    # t0 = time.time()
+                    # input_ids = hf_tokenizer.encode(res[0]['caption'], return_tensors="pt")
+                    # # with torch.cuda.amp.autocast():
+                    # #hf_outputs = hf_model.generate(input_ids)
+                    # decoded = 'zzz'  # hf_tokenizer.decode(hf_outputs[0], skip_special_tokens=True)
+                    # decoded = decoded[0].upper() + decoded[1:]
+                    # print(f'NMT: {time.time() - t0:.3f}  ', end=''); t0 = time.time()
+                    # print(res_cap[:50], '  ', decoded[:50])
+                    
+                    # res[0]['caption'] = decoded
+                    
                     yield img_key, json.dumps(res, ensure_ascii=False)
 
         logger.info(f'Inference model computing time: {time_meter / (step+1)} seconds per batch')
@@ -1153,11 +976,11 @@ def restore_training_settings(args):
             max_od_labels_len = train_args.max_seq_length - train_args.max_seq_a_length
         max_seq_length = args.max_gen_length + max_od_labels_len
         args.max_seq_length = max_seq_length
-        logger.warning(
-            f'Override max_seq_length to {max_seq_length} = '
-            f'max_gen_length:{args.max_gen_length} + '
-            f'od_labels_len:{max_od_labels_len}'
-        )
+        # logger.warning(
+        #     f'Override max_seq_length to {max_seq_length} = '
+        #     f'max_gen_length:{args.max_gen_length} + '
+        #     f'od_labels_len:{max_od_labels_len}'
+        # )
 
     override_params = ['max_seq_a_length', 'do_lower_case', 'add_od_labels', 'max_img_seq_length']
     for param in override_params:
@@ -1348,39 +1171,257 @@ def main():
             evaluate_file = evaluate(args, test_dataloader, model, tokenizer, checkpoint)
             logger.info('Evaluation results saved to: {}'.format(evaluate_file))
 
+    print('Done.')
+
+    
+class LiveSample:
+    """Returns prepared sample from image file
+    """
+    def __init__(
+            self, tokenizer=None, add_od_labels=True, max_img_seq_length=50, max_seq_length=70,
+            max_seq_a_length=40, max_ocr_seq_length=10, is_train=False,
+            mask_prob=0.15, max_masked_tokens=3,
+    ):        
+        self.tokenizer = tokenizer
+        self.tensorizer = CaptionTensorizer(
+            self.tokenizer, max_img_seq_length, max_seq_length, max_seq_a_length, max_ocr_seq_length,
+            mask_prob=mask_prob, max_masked_tokens=max_masked_tokens, is_train=False,
+        )
+        self.add_od_labels = add_od_labels
+
+        self.vinvl = VinVLDetector(yaml_file='../oscar/huawei-image-caption/sgg_bench/models/vinvl/vg/for_live_mmf.yaml')
+
+    def run_vinvl(self, filename):
+        t0 = time.time()        
+        rects, feats, labels, scores = self.vinvl.infer_file(filename)
+        print(f'VinVL: {time.time() - t0:.3f}  ', end=''); t0 = time.time()
+        return rects, feats, labels, scores
+        
+    def get_sample(self, filename):
+        rects, feats, labels, scores = self.run_vinvl(filename)
+        od_labels = ' '.join(list(set(labels)))  # Remove duplicates
+        # od_labels = ' '.join(list(labels))  # Remove duplicates?????????
+
+        rects_np = np.asarray(rects)
+        feats_np = np.asarray(feats)
+        scores_np = np.asarray(scores)
+
+        # Add positional info
+        features_pos = np.zeros((len(feats_np), 2048 + 6), dtype=np.float32)
+        features_pos[:, :-6] = feats_np
+        assert feats_np.dtype == features_pos.dtype
+
+        widths = rects_np[:, 2] - rects_np[:, 0]
+        heights = rects_np[:, 3] - rects_np[:, 1]
+        rects_enh = np.concatenate([rects_np, widths[:, None], heights[:, None]], axis=1)
+
+        features_pos[:, -6:] = rects_enh
+        features = torch.Tensor(features_pos)        
+        
+        example = self.tensorizer.tensorize_example(
+            text_a='', img_feat=features, text_b=od_labels,
+        )
+        return filename, example
+
+
+class OscarLive:
+    """Main LIVE Model
+    """
+    def __init__(self):
+        self.init()
+    
+    def init(self):
+        args = argparse.Namespace(
+            adam_epsilon=1e-08, add_ocr_labels=False, add_od_labels=True, 
+            config_name='', distributed=False, 
+            do_eval=False, do_lower_case=True, do_test=True, 
+            do_train=False, drop_out=0.1, drop_worst_after=0, 
+            drop_worst_ratio=0, eval_model_dir='../oscar/models/checkpoint-7-5250', 
+            evaluate_during_training=False, fp16=True, 
+            freeze_embedding=False, gradient_accumulation_steps=1, 
+            img_feature_dim=2054, img_feature_type='frcnn', label_smoothing=0, 
+            learning_rate=3e-05, length_penalty=1, local_rank=0, 
+            logging_steps=20, loss_type='sfmx', mask_prob=0.15, 
+            max_gen_length=20, max_grad_norm=1.0, max_img_seq_length=50, 
+            max_masked_tokens=3, max_ocr_seq_length=10, max_seq_a_length=40, 
+            max_seq_length=50, max_steps=-1, model_name_or_path=None, 
+            no_cuda=False, num_beams=1, num_gpus=1, 
+            num_keep_best=1, num_labels=2, num_return_sequences=1, 
+            num_train_epochs=40, num_workers=0, ocr_dim=774, 
+            output_hidden_states=False, output_mode='classification', 
+            per_gpu_eval_batch_size=1, per_gpu_train_batch_size=64, repetition_penalty=1, 
+            save_steps=-1, scheduler='linear', seed=88, 
+            temperature=1, test_yaml='test.yaml', tie_weights=False, 
+            tokenizer_name='', top_k=0, top_p=1, 
+            train_yaml='train.yaml', val_yaml='val.yaml', warmup_steps=0, 
+            weight_decay=0.05
+        )
+        self.args = args
+
+        # Setup CUDA, GPU & distributed training
+        local_rank = ensure_init_process_group(local_rank=args.local_rank)
+        # args.local_rank = local_rank
+        # args.num_gpus = get_world_size()
+        # args.distributed = args.num_gpus > 1
+        args.device = torch.device('cuda')
+        # synchronize()
+
+        args.num_gpus = 1
+        args.distributed = False
+
+        set_seed(args.seed, args.num_gpus)
+        args = restore_training_settings(args)
+
+        # Load pretrained model and tokenizer
+
+        checkpoint = args.eval_model_dir
+        assert op.isdir(checkpoint)
+        
+        config = BertConfig.from_pretrained(checkpoint)
+        config.output_hidden_states = args.output_hidden_states
+        self.tokenizer = BertTokenizer.from_pretrained(checkpoint)
+
+        config.add_ocr_labels = args.add_ocr_labels
+        config.ocr_dim = args.ocr_dim
+
+        self.bert_model = BertForImageCaptioning.from_pretrained(checkpoint, config=config)
+        self.bert_model.to(args.device)
+
+        # inference and evaluation    
+        self.dataset = LiveSample(        
+            tokenizer=self.tokenizer,
+            max_img_seq_length=args.max_img_seq_length,
+            max_seq_length=args.max_seq_length,
+            max_seq_a_length=args.max_seq_a_length,
+            max_ocr_seq_length=args.max_ocr_seq_length,
+            mask_prob=args.mask_prob,
+            max_masked_tokens=3,
+        )
+
+        images_per_gpu = args.per_gpu_eval_batch_size
+
+        self.predict_file = 'aaa.bbb'
+
+    def inference(self, filename):
+        args = self.args
+        tokenizer = self.tokenizer
+        cls_token_id, sep_token_id, pad_token_id, mask_token_id, period_token_id = tokenizer.convert_tokens_to_ids(
+            [tokenizer.cls_token, tokenizer.sep_token, tokenizer.pad_token, tokenizer.mask_token, '.']
+        )
+        self.bert_model.eval()
+
+        inputs_param = {
+            'is_decode': True, 'do_sample': False,
+            'bos_token_id': cls_token_id, 'pad_token_id': pad_token_id,
+            'eos_token_ids': [sep_token_id], 'mask_token_id': mask_token_id,
+            # for adding od labels
+            'add_od_labels': args.add_od_labels, 'od_labels_start_posid': args.max_seq_a_length,
+            # hyperparameters of beam search
+            'max_length': args.max_gen_length, 'num_beams': args.num_beams,
+            'temperature': args.temperature, 'top_k': args.top_k, 'top_p': args.top_p,
+            'repetition_penalty': args.repetition_penalty, 'length_penalty': args.length_penalty,
+            'num_return_sequences': args.num_return_sequences, 'num_keep_best': args.num_keep_best,
+        }
+
+        with torch.no_grad():
+            step = 0
+            img_keys, batch = self.dataset.get_sample(filename)
+            # print(img_keys)
+            # print(batch)
+            batch = tuple(el.unsqueeze(0) for el in batch)
+            # print(batch)
+            # for step, (img_keys, batch) in enumerate(test_dataloader):
+
+            batch = tuple(t.to(args.device) for t in batch)
+            inputs = {
+                'input_ids': batch[0],
+                'attention_mask': batch[1],
+                'token_type_ids': batch[2],
+                'img_feats': batch[3],
+                'masked_pos': batch[4],
+            }
+
+            inputs.update(inputs_param)
+            tic = time.time()
+
+            t0 = time.time()
+            if args.fp16:
+                with torch.cuda.amp.autocast():
+                    outputs = self.bert_model(**inputs)
+            else:
+                outputs = self.bert_model(**inputs)
+            print(f'BERT: {time.time() - t0:.3f}  ', end=''); t0 = time.time()
+
+            all_caps = outputs[0]  # batch_size * num_keep_best * max_len
+            all_confs = torch.exp(outputs[1])
+
+            for img_key, caps, confs in zip(img_keys, all_caps, all_confs):
+                res = []
+                for cap, conf in zip(caps, confs):
+                    cap = tokenizer.decode(cap.tolist(), skip_special_tokens=True)
+                    res.append({'caption': cap, 'conf': conf.item()})
+                if isinstance(img_key, torch.Tensor):
+                    img_key = img_key.item()
+            # print(res)
+                # yield img_key, json.dumps(res, ensure_ascii=False)
+        return res[0]['caption']
+        # tsv_writer(gen_rows(), self.predict_file)
+        # evaluate_file = get_evaluate_file(self.predict_file)
+        # convert_tsv_to_coco_format(self.predict_file, evaluate_file)
+
+
 
 def check():
-    data_dir = '/media/stopmosk/data/huawei/datasets/my'
-    filename = op.join(data_dir, '0001.jpg')
+    data_dir = '../datasets_orig/my/images'
+    file_list = sorted(os.listdir(data_dir))
+    filename = op.join(data_dir, file_list[0])
+    
     vinvl = VinVLDetector()
     vinvl.input_dir = data_dir
 
-    a = torch.randn((1, 3, 224, 224)).cuda()
+    # tmp = torch.randn((1, 3, 224, 224)).cuda()
     rects, feats, labels, scores  = vinvl.infer_file(filename)
-    print(len(feats))
-    print(feats[0].shape)
+    
+    print('Rects:', np.asarray(rects).shape)
+    print('Scores:', np.asarray(scores).shape)
+    print('Features:', np.asarray(feats).shape)
+    print('Labels:', set(labels))
+    
+    exit()
+
+
+def check_time():
+    os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+    from time import time
+    
+    data_dir = '../datasets_orig/my/images'
+    file_list = sorted(os.listdir(data_dir))
+    
+    vinvl = VinVLDetector()
+    vinvl.input_dir = data_dir
+
+    for f in file_list:
+        filename = op.join(data_dir, f)
+        
+        t1 = time()
+        vinvl.infer_file(filename)
+        t2 = time()
+        
+        print('Inference time:', t2 - t1)
+
     exit()
 
 
 if __name__ == '__main__':
+    # check_time()
     # import cv2
     # im_name = '/media/stopmosk/data/huawei/datasets/my/0001.jpg'
     # cv2_img = cv2.imread(im_name)
     # cv2.imshow('image', cv2_img)
     # cv2.waitKey(0)
     main()
+    # test = OscarLive()
+    # test.inference('../../CNMT/images/COCO_val2014_000000000641.jpg')
     # model = BertForImageCaptioningOCR.from_pretrained(checkpoint, config=config)
-    #
-    # data_dir = '/media/stopmosk/data/huawei/datasets/my'
-    # filename = op.join(data_dir, '0001.jpg')
-    # vinvl = VinVLDetector()
-    # vinvl.input_dir = data_dir
-    #
-    # a = torch.randn((1, 3, 224, 224)).cuda()
-
-    # print(vinvl.model(a))
-    # rects, feats, labels, scores  = vinvl.infer_file(filename)
-    # print(len(feats))
-    # print(feats[0].shape)
 
 

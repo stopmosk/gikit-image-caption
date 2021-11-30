@@ -19,7 +19,7 @@ from scene_graph_benchmark.config import sg_cfg
 from maskrcnn_benchmark.data.datasets.utils.load_files import config_dataset_file
 from maskrcnn_benchmark.utils.miscellaneous import mkdir
 
-from tools.demo.visual_utils import draw_bb, draw_rel
+# from tools.demo.visual_utils import draw_bb, draw_rel
 
 
 def cv2Img_to_Image(input_img):
@@ -28,7 +28,7 @@ def cv2Img_to_Image(input_img):
     img = Image.fromarray(img)
     return img
 
-
+from time import time
 def detect_objects_on_single_image(model, transforms, cv2_img):
     # cv2_img is the original input, so we can get the height and width information to scale the output boxes.
     img_input = cv2Img_to_Image(cv2_img)
@@ -37,7 +37,9 @@ def detect_objects_on_single_image(model, transforms, cv2_img):
 
     # with torch.cuda.amp.autocast():
     with torch.no_grad():
+        # t0=time()
         prediction = model(img_input)
+        # print(time()-t0)
         prediction = prediction[0].to(torch.device('cpu'))
 
     img_height = cv2_img.shape[0]
@@ -102,12 +104,12 @@ def postprocess_attr(dataset_attr_labelmap, label_list, conf_list):
 
 
 class VinVLDetector:
-    def __init__(self):
+    def __init__(self, yaml_file='./sgg_bench/models/vinvl/vg/for_live.yaml'):
         # parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
         #                     help='Modify config options using the command-line')
 
         # config_file = './sgg_bench/sgg_configs/vgattr/vinvl_imcap.yaml'
-        config_file = './sgg_bench/models/vinvl/vg/for_live.yaml'
+        config_file = yaml_file
         # args.visualize_attr = True
 
         cfg.set_new_allowed(True)
@@ -143,9 +145,12 @@ class VinVLDetector:
     def infer_file(self, filename):
         cv2_img = cv2.imread(filename)
         dets = detect_objects_on_single_image(self.model, self.transforms, cv2_img)
-
+                    
         for obj in dets:
-            obj['class'] = self.dataset_labelmap[obj['class']]
+            if obj['class'] == 0:
+                obj['class'] = 'object'
+            else:
+                obj['class'] = self.dataset_labelmap[obj['class']]
 
         rects = [d['rect'] for d in dets]
         feats = [d['feat'] for d in dets]

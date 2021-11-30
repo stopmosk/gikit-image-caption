@@ -25,6 +25,7 @@ from oscar.modeling.modeling_bert import BertForImageCaptioning, BertForImageCap
 from transformers.pytorch_transformers import BertTokenizer, BertConfig
 from transformers.pytorch_transformers import AdamW, WarmupLinearSchedule, WarmupConstantSchedule
 
+from fasttext import load_model
 
 class CaptionTSVDataset(Dataset):
     def __init__(
@@ -154,15 +155,9 @@ class CaptionTSVDataset(Dataset):
         ocr_labels = []
         if self.add_ocr_labels and self.ocr_blocks:
             img_ocr_blocks = self.ocr_blocks[img_key]  # list of [box, text, conf]
-            # Get only concatenated text without any processing
-            # TODO: processing of OCR blocks: boxes, conf
             for block in img_ocr_blocks:
                 block_text = block[1]
-                # print(block_text, end=' + ')
-                # if ' ' in block_text:
-                #     print(block_text)
-            # print()
-            # ocr_labels = ' '.join([b[1] for b in img_ocr_blocks])
+            # Get only text
             ocr_labels = [b[1] for b in img_ocr_blocks]
         return ocr_labels
 
@@ -518,6 +513,15 @@ class CaptionTensorizer(object):
         return input_ids, attention_mask, segment_ids, img_feat, masked_pos
 
 
+class WordToVectorDict:
+    def __init__(self, model):
+        self.model = model
+
+    def __getitem__(self, word):
+        # Check if mean for word split needs to be done here
+        return np.mean([self.model.get_word_vector(w) for w in word.split(" ")], axis=0)
+
+
 class CaptionTensorizerOCR(object):
     def __init__(self,
                  tokenizer,
@@ -537,7 +541,7 @@ class CaptionTensorizerOCR(object):
             is_train: train or test mode.
             mask_prob: probability to mask a input token.
             max_masked_tokens: maximum number of tokens to be masked in one sentence.
-        """
+        """       
         self.tokenizer = tokenizer
         self.is_train = is_train
         self.max_img_seq_len = max_img_seq_length
@@ -549,7 +553,13 @@ class CaptionTensorizerOCR(object):
         self._triangle_mask = torch.tril(
             torch.ones((self.max_seq_len, self.max_seq_len), dtype=torch.long)
         )
-
+        # for OCR
+        model_file = '../pretrained_models/wiki.en.bin'
+        fasttext_model = load_model(model_file)
+        # String to Vector
+        self.str2vec = WordToVectorDict(fasttext_model)
+        self.ft_pad = self.str2vec[' ']
+        
     def tensorize_example_v2(self, text_a, img_feat, text_b=None, text_c=None,
                              cls_token_segment_id=0, pad_token_segment_id=0, text_c_pos=None,
                              sequence_a_segment_id=0, sequence_b_segment_id=1, sequence_c_segment_id=2):
@@ -640,32 +650,26 @@ class CaptionTensorizerOCR(object):
             img_feat = torch.cat((img_feat, padding_matrix), 0)
 
         # OCR TOKENS
+        # print(text_c)     
         ocr_len = 0
         tokens_c_pos = []
         if text_c is not None:
-            # tokens_c = self.tokenizer.tokenize(text_c)  # Tokenize OCR labels string
-            tokens_c = []
-            tokens_c_pos = []
-            for text_block, text_pos in zip(text_c, text_c_pos):
-                tokens_block = self.tokenizer.tokenize(text_block)  # Tokenize OCR labels string
-                tokens_c.extend(tokens_block)
-                tokens_c_pos.extend([text_pos] * len(tokens_block))  # Repeat bbox N times
-                # print(f'TEXT: {text_block}, TOKENS: {tokens_block}, BBOXES: {[text_pos] * len(tokens_block)}')
-
-            # TODO: tokenizer for text not in dictionary?
+            tokens_c = [self.str2vec[text_block] for text_block in text_c]
+            tokens_c_pos = text_c_pos
+            
             if len(tokens_c) > self.max_ocr_seq_length:
                 tokens_c = tokens_c[:self.max_ocr_seq_length]  # [ocr_tokens] 0:50
                 tokens_c_pos = tokens_c_pos[:self.max_ocr_seq_length]  # 0:50
             ocr_tokens = tokens_c  # [ocr_tokens] <= 50
             ocr_len = len(tokens_c)
             padding_c_len = self.max_ocr_seq_length - len(tokens_c)  # pad to <= 50
-            ocr_tokens += [self.tokenizer.pad_token] * padding_c_len  # [OCR, [PAD]s] = 50
+            ocr_tokens += [self.str2vec[' ']] * padding_c_len  # [OCR, [PAD]s] = 50
             tokens_c_pos.extend([[0, 0, 0, 0, 0, 0]] * padding_c_len)  # PAD to 50
-            input_ocr_ids = self.tokenizer.convert_tokens_to_ids(ocr_tokens)
-            # print(input_ocr_ids, flush=True)
+            input_ocr_ids = ocr_tokens
+            #print(input_ocr_ids, flush=True)
         else:
-            ocr_tokens = [self.tokenizer.pad_token] * self.max_ocr_seq_length  # [[PAD]s] = 50
-            input_ocr_ids = self.tokenizer.convert_tokens_to_ids(ocr_tokens)
+            ocr_tokens = [self.ft_pad] * self.max_ocr_seq_length  # [[PAD]s] = 50
+            input_ocr_ids = ocr_tokens
             # print(input_ocr_ids, flush=True)
 
         # tokens_c_pos = np.zeros((len(ocr_tokens), 6))  # Fake positions
@@ -676,6 +680,45 @@ class CaptionTensorizerOCR(object):
         # TODO: FILL segments IF NEEDED
         ocr_segment_ids = [sequence_c_segment_id] * self.max_ocr_seq_length  # [2, 2, ..., 2] = 50
 
+#         ocr_len = 0
+#         tokens_c_pos = []
+#         if text_c is not None:
+#             # tokens_c = self.tokenizer.tokenize(text_c)  # Tokenize OCR labels string
+#             tokens_c = []
+#             tokens_c_pos = []
+#             for text_block, text_pos in zip(text_c, text_c_pos):
+#                 tokens_block = self.tokenizer.tokenize(text_block)  # Tokenize OCR labels string
+#                 tokens_c.extend(tokens_block)
+#                 tokens_c_pos.extend([text_pos] * len(tokens_block))  # Repeat bbox N times
+#                 # print(f'TEXT: {text_block}, TOKENS: {tokens_block}, BBOXES: {[text_pos] * len(tokens_block)}')
+
+#             # TODO: tokenizer for text not in dictionary?
+#             if len(tokens_c) > self.max_ocr_seq_length:
+#                 tokens_c = tokens_c[:self.max_ocr_seq_length]  # [ocr_tokens] 0:50
+#                 tokens_c_pos = tokens_c_pos[:self.max_ocr_seq_length]  # 0:50
+#             ocr_tokens = tokens_c  # [ocr_tokens] <= 50
+#             ocr_len = len(tokens_c)
+#             padding_c_len = self.max_ocr_seq_length - len(tokens_c)  # pad to <= 50
+#             ocr_tokens += [self.tokenizer.pad_token] * padding_c_len  # [OCR, [PAD]s] = 50
+#             tokens_c_pos.extend([[0, 0, 0, 0, 0, 0]] * padding_c_len)  # PAD to 50
+#             input_ocr_ids = self.tokenizer.convert_tokens_to_ids(ocr_tokens)
+#             # print(input_ocr_ids, flush=True)
+#         else:
+#             ocr_tokens = [self.tokenizer.pad_token] * self.max_ocr_seq_length  # [[PAD]s] = 50
+#             input_ocr_ids = self.tokenizer.convert_tokens_to_ids(ocr_tokens)
+#             # print(input_ocr_ids, flush=True)
+
+#         # tokens_c_pos = np.zeros((len(ocr_tokens), 6))  # Fake positions
+#         tokens_c_pos = np.array(tokens_c_pos)
+#         # print(tokens_c)
+#         # print(tokens_c_pos.shape)
+
+#         # TODO: FILL segments IF NEEDED
+#         ocr_segment_ids = [sequence_c_segment_id] * self.max_ocr_seq_length  # [2, 2, ..., 2] = 50
+
+        
+        
+        
         # prepare attention mask:
         # note that there is no attention from caption to image (no L-C, R-C, O-C, ...)
         # because otherwise it will violate the triangle attention
@@ -721,7 +764,7 @@ class CaptionTensorizerOCR(object):
 
         input_ids = torch.tensor(input_ids, dtype=torch.long)
         # TODO: input_ocr_ids should work with no OCR too
-        input_ocr_ids = torch.tensor(input_ocr_ids, dtype=torch.long)
+        input_ocr_ids = torch.tensor(input_ocr_ids) #, dtype=torch.long)
         segment_ids = torch.tensor(segment_ids, dtype=torch.long)
         input_ocr_posits = torch.tensor(tokens_c_pos, dtype=torch.float32)  # Convert to float from int
 
@@ -730,7 +773,7 @@ class CaptionTensorizerOCR(object):
             return input_ids, attention_mask, segment_ids, img_feat, masked_pos, masked_ids, input_ocr_ids, input_ocr_posits
         return input_ids, attention_mask, segment_ids, img_feat, masked_pos, input_ocr_ids, input_ocr_posits
 
-
+    
 def build_dataset(yaml_file, tokenizer, args, is_train=True):
     if not op.isfile(yaml_file):
         yaml_file = op.join(args.data_dir, yaml_file)
@@ -968,12 +1011,12 @@ def train(args, train_dataloader, val_dataset, model, tokenizer):
                 else:
                     optimizer.step()
 
-                # if step > 100:   # HARDCODE!111111
-                #    scheduler.step()
+                if step > 100:   # Because of UserWarning: Detected call of scheduler.step() before optimizer.step()
+                    scheduler.step()
 
                 model.zero_grad()
 
-                scheduler.step()
+                #scheduler.step()
 
                 if global_step % args.logging_steps == 0:
                     logger.info(

@@ -7,10 +7,11 @@ python oscar/run_cap_eval_only.py \
 --data_dir=$1 \
 --per_gpu_eval_batch_size=1 \
 --num_workers=0 \
---num_beams=5 \
+--num_beams=1 \
 --max_gen_length=20 \
 --output_dir=../output/results \
---eval_model_dir=$2
+--eval_model_dir=$2 \
+--fp16
 
 #--eval_model_dir=../models/checkpoint-9-204000
 #--eval_model_dir=../models/checkpoint-13-256000

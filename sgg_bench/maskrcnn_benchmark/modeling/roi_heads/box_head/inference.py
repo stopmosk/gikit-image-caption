@@ -3,6 +3,8 @@
 import torch
 import torch.nn.functional as F
 from torch import nn
+import torchvision
+
 # import multiprocessing as mp
 
 from maskrcnn_benchmark.structures.bounding_box import BoxList
@@ -10,6 +12,8 @@ from maskrcnn_benchmark.structures.boxlist_ops import boxlist_nms
 from maskrcnn_benchmark.structures.boxlist_ops import cat_boxlist
 from maskrcnn_benchmark.modeling.box_coder import BoxCoder
 from maskrcnn_benchmark.layers import nms as box_nms
+
+from time import time
 
 
 class PostProcessor(nn.Module):
@@ -46,11 +50,13 @@ class PostProcessor(nn.Module):
         self.force_boxes = cfg.MODEL.ROI_BOX_HEAD.FORCE_BOXES
         self.ignore_box_regression = cfg.TEST.IGNORE_BOX_REGRESSION
 
-        self.filter_method = self.filter_results
-        if self.cfg.MODEL.ROI_HEADS.NMS_FILTER == 1:
-            self.filter_method = self.filter_results_peter
-        elif self.cfg.MODEL.ROI_HEADS.NMS_FILTER == 2:
-            self.filter_method = self.filter_results_fast
+        nms_methods = {
+            0: self.filter_results,
+            1: self.filter_results_peter,
+            2: self.filter_results_fast,
+            3: self.filter_results_stopmosk,
+        }        
+        self.filter_method = nms_methods[self.cfg.MODEL.ROI_HEADS.NMS_FILTER]
 
             
     def nms_mp(self, prob, boxes_per_img, image_shape, feature, num_classes, p_num, res_dict):
@@ -121,12 +127,14 @@ class PostProcessor(nn.Module):
 
         if self.cls_agnostic_bbox_reg:
             box_regression = box_regression[:, -4:]
+            
         if self.ignore_box_regression or self.force_boxes:
             proposals = concat_boxes
         else:
             proposals = self.box_coder.decode(
                 box_regression.view(sum(boxes_per_image), -1), concat_boxes
             )
+            
         if (self.cls_agnostic_bbox_reg or self.ignore_box_regression) \
                 and (self.cfg.MODEL.ROI_HEADS.NMS_FILTER != 2):
             proposals = proposals.repeat(1, class_prob.shape[1])
@@ -404,6 +412,70 @@ class PostProcessor(nn.Module):
 
         return boxlist[keep_boxes]
 
+
+    def filter_results_stopmosk(self, boxlist, num_classes, feature=None):
+        """Returns bounding-box detection results by thresholding on scores and
+        applying non-maximum suppression (NMS).
+        """
+        # unwrap the boxlist to avoid additional overhead.
+        # if we had multi-class NMS, we could perform this directly on the boxlist
+        scores = boxlist.get_field("scores").reshape(-1, num_classes)
+
+        # Apply threshold on detection probabilities and apply NMS. Skip j = 0, because it's the background class
+        start_index = 1
+        dets = boxlist.bbox.reshape(-1, num_classes, 4)
+        dets = dets[:, 0]
+        feats = feature
+        # print('Filter_res dets shape:\n', dets.shape)  # [N x 1595 x 4]
+        # # a, b = dets[:3, 1], dets[:3, 2]; print(a); print(b)
+        # print('Scores shape:\n', scores.shape)  # [N x 1595]
+        # print('Features shape:\n', feats.shape)  # [N x 1595]
+        # input('PRESS ENTER:'); exit()
+        
+        obj_scores, obj_ids = torch.max(scores[:, start_index:], 1)  # находим максимальные скоры в каждом боксе из 1000 и получаем соотв id классов
+        keep = torchvision.ops.batched_nms(dets, obj_scores, obj_ids, 0.5)  # фильтруем боксы, keep возвращает номера боксов, которые нужно оставить
+
+        keeped_scores = obj_scores[keep]
+        keeped_dets = dets[keep]
+        keeped_obj_ids = obj_ids[keep]
+        keeped_feats = feats[keep]
+
+        sorted_scores, sorted_indices = torch.sort(keeped_scores, descending=True)
+        sorted_ids_by_score = keeped_obj_ids[sorted_indices]
+        sorted_dets_by_score = keeped_dets[sorted_indices]
+        sorted_feats_by_score = keeped_feats[sorted_indices]
+
+        mask = (sorted_scores > self.score_thresh)
+        # max_feats = self.detections_per_img
+
+        num_dets = mask.sum().item()
+        if num_dets < self.min_detections_per_img:
+            mask[:self.min_detections_per_img] = True
+        elif num_dets > self.detections_per_img:
+            mask[self.detections_per_img:] = False
+
+        res_scores = sorted_scores[mask]
+        res_obj_ids = sorted_ids_by_score[mask]
+        res_dets = sorted_dets_by_score[mask]
+        res_feats = sorted_feats_by_score[mask] #*
+        num_boxes = len(res_scores)
+
+        # print('Filter_res dets shape:\n', res_dets.shape)  # [N x 1595 x 4]
+        # print('Scores shape:\n', res_scores.shape)  # [N x 1595]
+        # print('Features shape:\n', res_feats.shape)  # [N x 1595]
+
+        result = BoxList(res_dets, boxlist.size, mode='xyxy')
+        result.add_field('labels', res_obj_ids)
+        result.add_field('scores', res_scores)
+        
+        if self.output_feature:
+            # Вообще тут нужно выводить все фичи (до применения NMS), но мне пофиг
+            result.add_field('box_features', res_feats)
+            result.add_field('scores_all', res_scores)
+            result.add_field('boxes_all', res_dets)  #boxes_all.view(-1, num_classes, 4))            
+        
+        return result
+                
 
 def make_roi_box_post_processor(cfg):
     bbox_reg_weights = cfg.MODEL.ROI_HEADS.BBOX_REG_WEIGHTS

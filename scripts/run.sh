@@ -32,7 +32,7 @@
 #bash scripts/inference_oscar_vvl.sh ../datasets_orig/huawei_5 /mnt/ssd/res/agg_xe/checkpoint-9-16000
 #bash scripts/inference_oscar_vvl.sh ../datasets_orig/huawei_1000 /mnt/ssd/res/agg_xe/checkpoint-9-16000
 
-#bash scripts/inference_oscar_vvl.sh ../datasets_orig/huawei_5 /mnt/ssd/res/checkpoint-7-5250
+bash scripts/inference_oscar_vvl.sh ../datasets_orig/huawei_1000 /mnt/ssd/res/coco/scst_resume/checkpoint-7-5250
 #bash scripts/inference_oscar_vvl.sh ../datasets_orig/huawei_1000 /mnt/ssd/res/checkpoint-7-5250
 #bash scripts/inference_oscar_vvl.sh ../datasets_orig/huawei_5000 /mnt/ssd/res/checkpoint-7-5250
 
@@ -56,7 +56,7 @@
 #bash scripts/inference_oscar_vvl.sh ../datasets_orig/huawei_1000 ../output_dl2/coco_ru_base_xe_3/checkpoint-28-250000
 #bash scripts/inference_oscar_vvl.sh ../datasets_orig/huawei_1000 ../output_dl2/coco_ru_base_xe_3/checkpoint-29-262000
 
-bash scripts/inference_oscar_vvl.sh ../datasets_orig/huawei_1000 ../output_dl2/coco_fr_base_xe_1/checkpoint-26-236000
-bash scripts/inference_oscar_vvl.sh ../datasets_orig/huawei_1000 ../output_dl2/coco_fr_base_xe_1/checkpoint-29-260000
-bash scripts/inference_oscar_vvl.sh ../datasets_orig/huawei_1000 ../output_dl2/coco_es_base_xe_1/checkpoint-25-224000
-bash scripts/inference_oscar_vvl.sh ../datasets_orig/huawei_1000 ../output_dl2/coco_es_base_xe_1/checkpoint-29-264000
+#bash scripts/inference_oscar_vvl.sh ../datasets_orig/huawei_1000 ../output_dl2/coco_fr_base_xe_1/checkpoint-26-236000
+#bash scripts/inference_oscar_vvl.sh ../datasets_orig/huawei_1000 ../output_dl2/coco_fr_base_xe_1/checkpoint-29-260000
+#bash scripts/inference_oscar_vvl.sh ../datasets_orig/huawei_1000 ../output_dl2/coco_es_base_xe_1/checkpoint-25-224000
+#bash scripts/inference_oscar_vvl.sh ../datasets_orig/huawei_1000 ../output_dl2/coco_es_base_xe_1/checkpoint-29-264000

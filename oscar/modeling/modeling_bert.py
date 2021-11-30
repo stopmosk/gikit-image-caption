@@ -7,7 +7,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.nn import CrossEntropyLoss, MSELoss
-from transformers.pytorch_transformers.modeling_bert import (BertEmbeddings, 
+from transformers1.pytorch_transformers.modeling_bert import (BertEmbeddings, 
         BertSelfAttention, BertAttention, BertEncoder, BertLayer, 
         BertSelfOutput, BertIntermediate, BertOutput,
         BertPooler, BertLayerNorm, BertPreTrainedModel,
@@ -248,13 +248,9 @@ class BertImgModelOCR(BertPreTrainedModel):
 
         ocr_embedding_output = None
         if input_ocr_ids is not None:
-            # print(input_ocr_ids)
-            seq_length = input_ocr_ids.size(1)
-            # print(seq_length)
-            # Make fake pos. ids and feed it into BertEmbeddings because we will perform custom pos.encoding for OCR
-            ocr_fake_position_ids = torch.zeros(seq_length, dtype=torch.long, device=input_ocr_ids.device)
-            ocr_fake_position_ids = ocr_fake_position_ids.unsqueeze(0).expand_as(input_ocr_ids)
-            ocr_embedding_output = self.embeddings(input_ocr_ids, position_ids=ocr_fake_position_ids, token_type_ids=None)
+                        
+            ocr_embedding_output = input_ocr_ids
+            # print('SHAPE:', ocr_embedding_output.shape)
             # TODO: pos enc & linear
             # Add position info
             # print(ocr_embedding_output.shape)
@@ -269,6 +265,30 @@ class BertImgModelOCR(BertPreTrainedModel):
             # ocr_embedding_output = self.dropout(ocr_embedding_output)
             embedding_output = torch.cat((embedding_output, ocr_embedding_output), 1)
             # print(embedding_output.shape)
+
+
+
+#             # print(input_ocr_ids)
+#             seq_length = input_ocr_ids.size(1)
+#             # print(seq_length)
+#             # Make fake pos. ids and feed it into BertEmbeddings because we will perform custom pos.encoding for OCR
+#             ocr_fake_position_ids = torch.zeros(seq_length, dtype=torch.long, device=input_ocr_ids.device)
+#             ocr_fake_position_ids = ocr_fake_position_ids.unsqueeze(0).expand_as(input_ocr_ids)
+#             ocr_embedding_output = self.embeddings(input_ocr_ids, position_ids=ocr_fake_position_ids, token_type_ids=None)
+#             # TODO: pos enc & linear
+#             # Add position info
+#             # print(ocr_embedding_output.shape)
+#             # print(input_ocr_posits) #.shape) #
+
+#             # POS ENC
+#             ocr_embedding_output = torch.cat((ocr_embedding_output, input_ocr_posits), 2)  # Concat emb & pos
+#             # print(ocr_embedding_output.shape)
+#             ocr_embedding_output = self.ocr_projection(ocr_embedding_output)
+
+#             # # ocr_embedding_output = self.LayerNorm(ocr_embedding_output)
+#             # ocr_embedding_output = self.dropout(ocr_embedding_output)
+#             embedding_output = torch.cat((embedding_output, ocr_embedding_output), 1)
+#             # print(embedding_output.shape)
 
         # Run BERT
         encoder_outputs = self.encoder(
@@ -745,6 +765,44 @@ class BertCaptioningLoss(nn.Module):
         return loss
 
 
+class OcrPtrNet(nn.Module):
+    
+    def __init__(self, hidden_size, query_key_size=None):
+        super().__init__()
+
+        if query_key_size is None:
+            query_key_size = hidden_size
+        self.hidden_size = hidden_size
+        self.query_key_size = query_key_size
+
+        self.query = nn.Linear(hidden_size, query_key_size)
+        self.key = nn.Linear(hidden_size, query_key_size)
+
+    def forward(self, query_inputs, key_inputs, attention_mask):
+        extended_attention_mask = (1.0 - attention_mask) * -10000.0
+        assert extended_attention_mask.dim() == 2
+        extended_attention_mask = extended_attention_mask.unsqueeze(1)
+
+        query_layer = self.query(query_inputs)
+        if query_layer.dim() == 2:
+            query_layer = query_layer.unsqueeze(1)
+            squeeze_result = True
+        else:
+            squeeze_result = False
+        key_layer = self.key(key_inputs)
+
+        scores = torch.matmul(
+            query_layer,
+            key_layer.transpose(-1, -2)
+        )
+        scores = scores / math.sqrt(self.query_key_size)
+        scores = scores + extended_attention_mask
+        if squeeze_result:
+            scores = scores.squeeze(1)
+
+        return scores    
+    
+
 class BertForImageCaptioningOCR(CaptionPreTrainedModel):
     def __init__(self, config):
         super(BertForImageCaptioningOCR, self).__init__(config)
@@ -757,7 +815,8 @@ class BertForImageCaptioningOCR(CaptionPreTrainedModel):
 
         self.apply(self.init_weights)  # Apply init_weights() to modules
         self.tie_weights()  # Sync weights in embedding encoder and decoder
-
+        
+        self.ocr_ptr_net = OcrPtrNet(config.hidden_size, config.hidden_size)
     def tie_weights(self):
         if hasattr(self.config, 'tie_weights') and self.config.tie_weights:
             self._tie_or_clone_weights(self.cls.predictions.decoder, self.bert.embeddings.word_embeddings)
@@ -807,22 +866,57 @@ class BertForImageCaptioningOCR(CaptionPreTrainedModel):
             head_mask=head_mask, encoder_history_states=encoder_history_states
         )
 
-        # Out: tuple
-        # 0: (1, 120, 768) = batch, pos, hidden_size
-        # 1: (1, 768) - pooled vector
+        # Out: tuples
+        # 0: (1, 170, 768) = batch, pos, hidden_size
+        # 1: (1, 768) - pooled vector (= tanh(Linear(bert_first_out_token)))
         # 2: ???hidden???
+        
+        top_out = outputs[0]  # (1, 170, 768) = batch, pos, hidden_size
+        
+        
+        
+        # --= OCR PTR NET =-- #
+        
+        bert_dec_output = top_out[:, 0:40, :] # bert output text dec
+        bert_ocr_output = top_out[:, 120:170, :] # bert out ocr dec
+        
+        # binary mask of valid OCR vs padding
+        pad_pos = torch.Tensor([0, 0, 0, 0, 0, 0])
+        #input_ocr_posits [bs, 50] 
+        ocr_nums = torch.sum(input_ocr_posits != pad_pos, dim=1)[:, 0]  # count of ocr tokens found in image
+        
+        ## pad at the end; used anyway by obj, ocr mmt encode
+        def _get_mask(nums, max_num):
+            # non_pad_mask: b x lq, torch.float32, 0. on PAD
+            batch_size = nums.size(0)
+            arange = torch.arange(0, max_num).unsqueeze(0).expand(batch_size, -1)
+            non_pad_mask = arange.to(nums.device).lt(nums.unsqueeze(-1))
+            non_pad_mask = non_pad_mask.type(torch.float32)
+            return non_pad_mask
+        ocr_mask = _get_mask(ocr_nums, 50) #ocr_max_size)
 
+
+        fixed_scores = self.cls(top_out[:, :input_ids.shape[-1], :])  # (1, 0:70, 768))
+        dynamic_ocr_scores = self.ocr_ptr_net(bert_dec_output, bert_ocr_output, ocr_mask)
+        scores = torch.cat([fixed_scores, dynamic_ocr_scores], dim=-1)
+                                
+        # argmax_inds = fwd_results["scores"].argmax(dim=-1)
+        # fwd_results['prev_inds'][:, 1:] = argmax_inds[:, :-1]        
+        
+                                
+                                
+        # --= ORIGINAL =-- #
+        
         if is_training:
-            sequence_output = outputs[0][:, :masked_pos.shape[-1], :]   # (1, 0:70, 768) i.e. only text (words&tags) feats
+            sequence_output = top_out[:, :masked_pos.shape[-1], :]   # (1, 0:70, 768) i.e. only text (words&tags) feats  (without image feats)
             sequence_output_masked = sequence_output[masked_pos==1, :]  # (masked_words_cnt in all batch, 768) i.e (n=2+1+3+1+2+...+1, 768)
             class_logits = self.cls(sequence_output_masked)  # (masked_words_cnt, vocab_size) - i.e. (n, 30000)
             masked_ids = masked_ids[masked_ids != 0]   # drop padding tokens, i.e. [2157, 175, 0] -> [2157, 175] - n tokens
             # Calculate loss
             masked_loss = self.loss(class_logits.float(), masked_ids)
-            outputs = (masked_loss, class_logits,) + outputs[2:]  # (loss, tensor(n, vocab_size))  # what is outputs[2:]??? - empty
-            # print()
+            outputs = (masked_loss, class_logits,) + outputs[2:]  # (loss, tensor(n, vocab_size))  # what is outputs[2:]? hidden states? - empty
         else:
-            sequence_output = outputs[0][:, :input_ids.shape[-1], :]  # (1, 0:70, 768)
+            sequence_output = top_out[:, :input_ids.shape[-1], :]  # (1, 0:70, 768)
             class_logits = self.cls(sequence_output)
             outputs = (class_logits,) + outputs[2:]
         return outputs

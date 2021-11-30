@@ -1,7 +1,7 @@
 # 37 38 37 50 30
 MODEL:
     META_ARCHITECTURE: "AttrRCNN"
-    WEIGHT: "sgg_bench/models/vinvl/vg/vinvl_vg_x152c4.pth"
+    WEIGHT: "../oscar/huawei-image-caption/sgg_bench/models/vinvl/vg/vinvl_vg_x152c4.pth"
     BACKBONE:
       CONV_BODY: "R-152-C4"
     RESNETS:
@@ -32,7 +32,7 @@ INPUT:
 DATASETS:
     FACTORY_TEST: ("ODTSVDataset",)
     TEST: ("train.yaml",)
-    LABELMAP_FILE: "sgg_bench/models/vinvl/vg/VG-SGG-dicts-vgoi6-clipped.json"
+    LABELMAP_FILE: "../oscar/huawei-image-caption/sgg_bench/models/vinvl/vg/VG-SGG-dicts-vgoi6-clipped.json"
 DATALOADER:
     NUM_WORKERS: 0
 TEST:
