@@ -1,6 +1,8 @@
 #!/bin/bash
 
 export MAX_JOBS=4
+
+#cp -a ../models/cnmt_data/. CNMT/data
 #sudo apt update && sudo apt install ffmpeg libsm6 libxext6
 
 #conda create --name hic python=3.8 -y
@@ -35,4 +37,4 @@ cd vqa-maskrcnn-benchmark-m4c && pip install -e . && cd ..
 
 # NMT
 conda install -c huggingface tokenizers=0.10.1 transformers=4.6.1 -y
-conda install sentencepiece -y
+# conda install sentencepiece -y
