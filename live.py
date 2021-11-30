@@ -39,7 +39,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 os.environ['TRANSFORMERS_CACHE'] = '../nmt_cache/'
-# from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
 # from transformers import FSMTForConditionalGeneration, FSMTTokenizer
 # mname = "facebook/wmt19-en-ru"
