@@ -33,3 +33,7 @@ conda install sentencepiece -y
 
 # CNMT
 cd CNMT && pip install -e . && cd ..
+
+# Custom VQA maskrcnn-benchmark
+cd vqa-maskrcnn-benchmark-m4c && pip install -e . && cd ..
+
