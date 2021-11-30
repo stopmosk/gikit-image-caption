@@ -1,15 +1,22 @@
 #!/bin/bash
 
-pip install gdown
+CUR_DIR=$PWD
 
-gdown https://drive.google.com/uc?id=12345678
-
-mkdir ../models
-tar -xzfv models.tar.gz -C ../models
-cp -a ../models/cnmt_data/. CNMT/data
-
-sudo apt update && sudo apt install ffmpeg libsm6 libxext6
+sudo apt update && sudo apt install ffmpeg libsm6 libxext6 &&
 
 conda create --name hic python=3.8 -y
 eval "$(conda shell.bash hook)"
 conda activate hic
+
+pip install gdown &&
+
+cd .. &&
+if [ ! -f ./models.tar.gz ]; then
+    gdown https://drive.google.com/uc?id=19rI7ARKZAuhBUDIR-kFq3xTwcNa5yJn_
+    # gdown https://drive.google.com/file/d/19rI7ARKZAuhBUDIR-kFq3xTwcNa5yJn_ &&
+fi &&
+
+mkdir -p models &&
+tar -xzvf models.tar.gz -C ./models && cd $CUR_DIR && 
+
+cp -a ../models/cnmt_data/. CNMT/data
