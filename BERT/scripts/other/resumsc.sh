@@ -1,0 +1,18 @@
+python oscar/run_captioning.py \
+--model_name_or_path=../output/scst_my/checkpoint-4-174000 \
+--data_dir=/hdd/sergeishutov/imagecaption/oscar/datasets/coco_my_oscar_vvl_tags \
+--do_train \
+--evaluate_during_training \
+--do_lower_case \
+--add_od_labels \
+--learning_rate=0.000002 \
+--per_gpu_train_batch_size=3 \
+--num_train_epochs=75 \
+--tie_weights \
+--freeze_embedding \
+--scst \
+--num_workers=6 \
+--logging_steps=100 \
+--save_steps=2000 \
+--output_dir=../output/scst_my_resume/ \
+--fp16

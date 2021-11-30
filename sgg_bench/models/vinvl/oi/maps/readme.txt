@@ -1,3 +1,0 @@
-We also provide the X152-C4 objecte detection config file and pretrained model on the merged four datasets (COCO with stuff, Visual Genome, Objects365 and Open Images). The labelmap to decode the 1848 can be found here. The first 1594 classes are exactly VG classes, with the same order. The map from COCO vocabulary to this merged vocabulary can be found here. The map from Objects365 vocabulary to this merged vocabulary can be found here. The map from OpenImages V5 vocabulary to this merged vocabulary can be found here.
-
-In addition, we provide a X152-C4 objecte detection config file and pretrained model on Objects365. Its labelmap to decode the object classes can be found here.

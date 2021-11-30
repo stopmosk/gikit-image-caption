@@ -1,6 +1,0 @@
-*.pyc
-
-pycocoevalcap/spice/cache
-
-stanford-corenlp-3.6.0.jar
-stanford-corenlp-3.6.0-models.jar
