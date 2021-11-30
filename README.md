@@ -16,6 +16,9 @@ cd HuaweiImageCaptionCode
 ./install.sh
 ```
 
+```bash
+conda activate hic
+```
 
 # Inference
 
