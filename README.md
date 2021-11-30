@@ -6,6 +6,17 @@ git clone https://github.com/servacc/HuaweiImageCaptionCode.git
 cd HuaweiImageCaptionCode
 ```
 
+# Run install scripts
+
+```bash
+./pre_install.sh
+```
+
+```bash
+./install.sh
+```
+
+
 # Inference
 
 Put your images in image_dir and run:
