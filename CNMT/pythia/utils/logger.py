@@ -1,4 +1,3 @@
-
 import base64
 import logging
 import os
@@ -38,7 +37,7 @@ class Logger:
             os.makedirs(self.log_folder, exist_ok=True)
 
 
-        self.log_filename = os.path.join(self.log_folder, self.log_filename)
+        self.log_filename =  '../temp.log' #os.path.join(self.log_folder, self.log_filename)
 
         if self._is_main_process:
             tensorboard_folder = os.path.join(self.log_folder, "tensorboard")

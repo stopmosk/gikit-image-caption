@@ -9,14 +9,14 @@ dataset_attributes:
             val:
             - tmp,tmp
             test:
-            - my_data/features,my_data/ocr_feats
+            - fakedata/features,fakedata/ocr_feats
         imdb_files:
             train:
             - tmp
             val:
             - tmp
             test:
-            - my_data/imdb/imdb_test_my.npy
+            - fakedata/imdb/imdb_test_my.npy
         processors:
             text_processor:
                 type: bert_tokenizer

@@ -1238,7 +1238,7 @@ class OscarLive:
             config_name='', distributed=False, 
             do_eval=False, do_lower_case=True, do_test=True, 
             do_train=False, drop_out=0.1, drop_worst_after=0, 
-            drop_worst_ratio=0, eval_model_dir='../oscar/models/checkpoint-7-5250', 
+            drop_worst_ratio=0, eval_model_dir='../models/checkpoint-7-5250', 
             evaluate_during_training=False, fp16=True, 
             freeze_embedding=False, gradient_accumulation_steps=1, 
             img_feature_dim=2054, img_feature_type='frcnn', label_smoothing=0, 

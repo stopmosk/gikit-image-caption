@@ -41,7 +41,7 @@ class CNMT(BaseModel):
     
     def _build_vocab_dict(self):
         self.vocab_dict = {}
-        with open("data/vocab_textcap_threshold_10.txt") as f:
+        with open("CNMT/data/vocab_textcap_threshold_10.txt") as f:
             lines = f.readlines()
             for i in range(len(lines)):
                 self.vocab_dict[lines[i][:-1]] = i

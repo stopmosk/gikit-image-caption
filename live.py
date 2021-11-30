@@ -39,13 +39,12 @@ import warnings
 warnings.filterwarnings("ignore")
 
 os.environ['TRANSFORMERS_CACHE'] = '../nmt_cache/'
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+# from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
 # from transformers import FSMTForConditionalGeneration, FSMTTokenizer
 # mname = "facebook/wmt19-en-ru"
 # hf_tokenizer = FSMTTokenizer.from_pretrained(mname)#, torch_dtype=torch.float16)
 # hf_model = FSMTForConditionalGeneration.from_pretrained(mname)#, torch_dtype=torch.float16)
-
 
 class NMT:
     def __init__(self, lang='ru'):
@@ -204,23 +203,21 @@ class FeatureExtractor:
     MAX_SIZE = 1333
     MIN_SIZE = 800
 
-    def __init__(self):
-        with open('visual_genome_categories.json') as f:
+    def __init__(self, image_dir):
+        with open('../models/visual_genome_categories.json') as f:
             cats = json.load(f)
             cats = cats['categories']
 
         self.id2cat = {el['id']: el['name'] for el in cats}
-        self.model_file = 'detectron_model.pth'
-        self.config_file = 'detectron_model.yaml'
-        self.output_folder = 'CNMT/data/my_data/features'
+        self.model_file = '../models/detectron_model.pth'
+        self.config_file = '../models/detectron_model.yaml'
         self.confidence_threshold = 0.2
         self.num_features = 100
         self.batch_size = 1
         self.feature_name = 'fc6'
-        self.image_dir = './images'
+        self.image_dir = image_dir
         
         self.detection_model = self._build_detection_model()
-        os.makedirs(self.output_folder, exist_ok=True)
         self.image_sizes = dict()
 
     def _build_detection_model(self):
@@ -381,17 +378,6 @@ class FeatureExtractor:
 
         return feat_list
 
-    def _save_feature(self, file_name, feature, info):
-        file_base_name = os.path.basename(file_name)
-        file_base_name = file_base_name.split('.')[0]
-        info_file_base_name = file_base_name + '_info.npy'
-        file_base_name = file_base_name + '.npy'
-
-        np.save(
-            os.path.join(self.output_folder, file_base_name), feature.cpu().numpy()
-        )
-        np.save(os.path.join(self.output_folder, info_file_base_name), info)
-
     def extract_features(self, filename):
         im_filepath = filename #op.join(self.image_dir, filename)
         features, infos = self.get_detectron_features([im_filepath])
@@ -471,7 +457,7 @@ def setup_pythia_imports():
 
     if root_folder is None:
         root_folder = os.path.dirname(os.path.abspath(__file__))
-        # root_folder = os.path.join(root_folder, "CNMT")
+        root_folder = os.path.join(root_folder, "CNMT")
 
         environment_pythia_path = os.environ.get("PYTHIA_PATH")
 
@@ -532,7 +518,7 @@ class MMFInstance:
             log_interval=None, logger_level=None, lr_scheduler=None, 
             max_epochs=None, max_iterations=None, model='cnmt', 
             num_workers=None, opts=[], patience=None, 
-            resume=None, resume_file='models/best.ckpt', run_type='inference', 
+            resume=None, resume_file='../models/best.ckpt', run_type='inference', 
             save_dir='../save/pred/', seed=None, should_not_log=False, 
             snapshot_interval=None, tasks='captioning', verbose_dump=None,
         )
@@ -571,13 +557,14 @@ def main():
     print('Load 1/5')
     ocr_reader = OCRReader(args.ocr_thresh, args.bbox_thresh)
     print('Load 2/5')
-    feature_extractor = FeatureExtractor()
+    feature_extractor = FeatureExtractor(args.image_dir)
     print('Load 3/5')
     mmf_inst = MMFInstance()
     print('Load 4/5')
     oscar_inst = OscarLive()
     print('Load 5/5')
-    nmt_inst = NMT(lang=args.lang)
+    if args.translate:
+        nmt_inst = NMT(lang=args.lang)
     print('Predicting')
     
     
@@ -660,7 +647,7 @@ def main():
     
 if __name__ == '__main__':    
     parser = argparse.ArgumentParser()
-    parser.add_argument('--image_dir', default='./images', type=str, required=False, help='The images folder.')
+    parser.add_argument('--image_dir', default='../images', type=str, required=False, help='The images folder.')
     parser.add_argument('--save_dir', default='../preds/', type=str, required=False, help='The output directory to save results.')
     parser.add_argument('--with_ocr', action='store_true')
     parser.add_argument('--translate', action='store_true')

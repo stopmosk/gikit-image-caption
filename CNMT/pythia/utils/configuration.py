@@ -1,4 +1,3 @@
-
 import collections
 import json
 import os
@@ -7,7 +6,7 @@ from ast import literal_eval
 
 import yaml
 
-import demjson
+import demjson3 as demjson
 import torch
 from pythia.common.registry import registry
 from pythia.utils.general import get_pythia_root

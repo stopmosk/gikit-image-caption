@@ -27,13 +27,14 @@ cd sgg_bench && pip install -e . && cd ../..
 # EasyOCR
 cd EasyOCR && pip install -e . && cd ..
 
-# NMT
-conda install -c huggingface tokenizers=0.10.1 transformers=4.6.1 -y
-conda install sentencepiece -y
-
 # CNMT
 cd CNMT && pip install -e . && cd ..
 
 # Custom VQA maskrcnn-benchmark
 cd vqa-maskrcnn-benchmark-m4c && pip install -e . && cd ..
 
+pip install pycocoevalcap
+
+# NMT
+conda install -c huggingface tokenizers=0.10.1 transformers=4.6.1 -y
+conda install sentencepiece -y
