@@ -627,15 +627,17 @@ def main():
         res_sentence = res_sentence.replace('" "', ' ')
         res_sentence = res_sentence[0].upper() + res_sentence[1:]        
         print((res_sentence + ' ' * 30)[:52], '', translated[:55])        
-        gen_results.append({'img_id': im_filename, 'caption': res_sentence, 'ocr_tokens': [] if ocr_results is None else ocr_results, 'translated': translated})
+        #print(ocr_results)
+        gen_results.append({'img_id': im_filename, 'caption': res_sentence, 'ocr_tokens': [] if ocr_results is None else ocr_results['ocr_results'][0], 'translated': translated})
     
+
     os.makedirs(args.save_dir, exist_ok=True)
     
     with open(op.join(args.save_dir, 'gen_result.txt'), 'w') as f:
         [f.writelines(s['caption'] + '\n') for s in gen_results]
 
     with open(op.join(args.save_dir, 'preds.json'), 'w') as f:
-        json.dump(gen_results, f, ensure_ascii=False)
+        json.dump({'annotations': gen_results}, f, ensure_ascii=False)
 
     print('Done.')
 
