@@ -18,7 +18,6 @@ import torch
 import torchvision
 
 from v_maskrcnn_benchmark.config import cfg
-from v_maskrcnn_benchmark.layers import nms
 from v_maskrcnn_benchmark.modeling.detector import build_detection_model
 from v_maskrcnn_benchmark.structures.image_list import to_image_list
 from v_maskrcnn_benchmark.utils.model_serialization import load_state_dict
@@ -29,9 +28,6 @@ import easyocr
 
 from pythia.common.registry import registry
 from pythia.utils.configuration import Configuration
-from pythia.utils.build_utils import build_trainer
-from pythia.utils.distributed_utils import is_main_process
-from pythia.utils.flags import flags
 
 from oscar.run_cap_eval_only import OscarLive
 
@@ -45,6 +41,7 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 # mname = "facebook/wmt19-en-ru"
 # hf_tokenizer = FSMTTokenizer.from_pretrained(mname)#, torch_dtype=torch.float16)
 # hf_model = FSMTForConditionalGeneration.from_pretrained(mname)#, torch_dtype=torch.float16)
+
 
 class NMT:
     def __init__(self, lang='ru'):
@@ -65,12 +62,13 @@ class OCRReader:
         self.threshold = ocr_thresh
         self.max_bboxes = bbox_thresh  # If bboxes is greater then bbox_thresh, skip OCR recognition
 
-    def area(bbox):
+    @classmethod
+    def area(cls, bbox):
         assert len(bbox) == 6
         return bbox[4] * bbox[5]
 
-
-    def int_area(a, b):  # returns None if rectangles don't intersect
+    @classmethod
+    def int_area(cls, a, b):  # returns None if rectangles don't intersect
         #   0    1    2    3   4  5
         # xmin ymin xmax ymax  w  h
         dx = min(a[2], b[2]) - max(a[0], b[0])
@@ -80,8 +78,8 @@ class OCRReader:
         else:
             return 0
 
-
-    def normalize_bbox(bbox, im_size):
+    @classmethod
+    def normalize_bbox(cls, bbox, im_size):
         # Normalize bbox coords from (absolute --> relative 0..1)
         assert len(bbox) == 4 and len(bbox[0]) == 2
         w, h = im_size
@@ -91,8 +89,8 @@ class OCRReader:
         ymax = bbox[2][1] / h
         return (xmin, ymin, xmax, ymax)
 
-
-    def get_rel_bbox(x_s, y_s, w, h):
+    @classmethod
+    def get_rel_bbox(cls, x_s, y_s, w, h):
         return [
             min(x_s) / w,
             min(y_s) / h,
@@ -102,7 +100,7 @@ class OCRReader:
             (max(y_s) - min(y_s)) / h,
         ]
 
-    def get_ocr_features(self, im_filepath, reader):
+    def get_ocr_features(self, im_filepath):
             im = Image.open(im_filepath)
             if len(im.split()) > 3:
                 background = Image.new("RGB", im.size, (255, 255, 255))
@@ -271,7 +269,7 @@ class FeatureExtractor:
         return img, im_scale, im_info
 
     def _process_feature_extraction(
-        self, output, im_scales, im_infos, feature_name='fc6', conf_thresh=0
+        self, output, im_scales, im_infos, feature_name='fc6', conf_thresh=0.0
     ):
         batch_size = len(output[0]['proposals'])
         #print(output[0])  # {'fc6', 'fc7', 'proposals', 'pooled', 'scores', 'bbox_deltas'}
@@ -555,21 +553,16 @@ class MMFInstance:
 
 def main():
     print('Load 1/5')
-    if args.with_ocr:
-        ocr_reader = OCRReader(args.ocr_thresh, args.bbox_thresh)
-        print('Load 2/5')
-        feature_extractor = FeatureExtractor(args.image_dir)
-        print('Load 3/5')
-        mmf_inst = MMFInstance()
-    else:
-        print('Load 2/5\nLoad 3/5')
+    ocr_reader = OCRReader(args.ocr_thresh, args.bbox_thresh) if args.with_ocr else None
+    print('Load 2/5')
+    feature_extractor = FeatureExtractor(args.image_dir) if args.with_ocr else None
+    print('Load 3/5')
+    mmf_inst = MMFInstance() if args.with_ocr else None
     print('Load 4/5')
     oscar_inst = OscarLive()
     print('Load 5/5')
-    if args.translate:
-        nmt_inst = NMT(lang=args.lang)
+    nmt_inst = NMT(lang=args.lang) if args.translate else None
     print('Predicting')
-    
     
     im_list = sorted(os.listdir(args.image_dir))
 
@@ -584,7 +577,7 @@ def main():
         t0 = time.time()
         ocr_results = None
         if args.with_ocr:
-            ocr_results = ocr_reader.get_ocr_features(im_filepath, ocr_reader)
+            ocr_results = ocr_reader.get_ocr_features(im_filepath)
         print(f" {'*' if ocr_results else ' '} ", end='')
         print(f'OCR: {time.time() - t0:.3f}  ', end=''); t0 = time.time()
 
@@ -612,7 +605,6 @@ def main():
             res_words = [f'"{word.upper()}"' if w_type == "OCR" else word for (word, w_type) in zip(caption, word_types)]
             res_sentence = ' '.join(res_words)    
 
-
         if not args.translate:
             res_sentence = res_sentence.replace('" "', ' ')
             res_sentence = res_sentence[0].upper() + res_sentence[1:]        
@@ -635,7 +627,7 @@ def main():
         res_sentence = res_sentence.replace('" "', ' ')
         res_sentence = res_sentence[0].upper() + res_sentence[1:]        
         print((res_sentence + ' ' * 30)[:52], '', translated[:55])        
-        gen_results.append({'img_id': im_filename, 'caption': res_sentence, 'translated': translated})
+        gen_results.append({'img_id': im_filename, 'caption': res_sentence, 'ocr_tokens': [] if ocr_results is None else ocr_results, 'translated': translated})
     
     os.makedirs(args.save_dir, exist_ok=True)
     
@@ -646,7 +638,7 @@ def main():
         json.dump(gen_results, f, ensure_ascii=False)
 
     print('Done.')
-    
+
     
 if __name__ == '__main__':    
     parser = argparse.ArgumentParser()

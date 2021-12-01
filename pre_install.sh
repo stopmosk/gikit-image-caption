@@ -4,7 +4,7 @@ CUR_DIR=$PWD
 
 sudo apt update && sudo apt install unzip aria2 ffmpeg libsm6 libxext6 &&
 
-pip install gdown && mkdir -p models &&
+pip install gdown && mkdir -p ../models &&
 
 cd ../models &&
 if [ ! -f ./models.zip ]; then

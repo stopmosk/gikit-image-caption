@@ -30,10 +30,13 @@ python live.py --image_dir=image_dir
 
 ```bash
 Keys:
---with_ocr
---translate
-
-and other
+  --image_dir IMAGE_DIR   # The images folder.
+  --save_dir SAVE_DIR   # The output directory to save results.
+  --with_ocr    # Enable OCR
+  --translate    #Enable Translation
+  --ocr_thresh OCR_THRESH   # OCR confidence threshold
+  --bbox_thresh BBOX_THRESH   # If OCR founds too many bboxes, we skip OCR recognition for speed
+  --lang LANG   # ru, fr, es, de
 ```
 
 Output ```.tsv``` and ```.json``` with the results will be in model folder.
