@@ -7,14 +7,14 @@ import importlib
 import argparse
 
 import numpy as np
-from datetime import datetime
 
 from PIL import Image
-from tqdm import tqdm
+# from tqdm import tqdm
 
 import cv2
 
 import torch
+import torch.nn.functional as F
 import torchvision
 
 from v_maskrcnn_benchmark.config import cfg
@@ -22,7 +22,7 @@ from v_maskrcnn_benchmark.modeling.detector import build_detection_model
 from v_maskrcnn_benchmark.structures.image_list import to_image_list
 from v_maskrcnn_benchmark.utils.model_serialization import load_state_dict
 
-os.environ['CUDA_VISIBLE_DEVICES']='0'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 print('CUDA_VISIBLE_DEVICES set to "0"')
 import easyocr
 
@@ -87,7 +87,7 @@ class OCRReader:
         xmax = bbox[2][0] / w
         ymin = bbox[0][1] / h
         ymax = bbox[2][1] / h
-        return (xmin, ymin, xmax, ymax)
+        return xmin, ymin, xmax, ymax
 
     @classmethod
     def get_rel_bbox(cls, x_s, y_s, w, h):
@@ -101,100 +101,100 @@ class OCRReader:
         ]
 
     def get_ocr_features(self, im_filepath):
-            im = Image.open(im_filepath)
-            if len(im.split()) > 3:
-                background = Image.new("RGB", im.size, (255, 255, 255))
-                background.paste(im, mask=im.split()[3]) # 3 is the alpha channel
-                im = background
+        im = Image.open(im_filepath)
+        if len(im.split()) > 3:
+            background = Image.new("RGB", im.size, (255, 255, 255))
+            background.paste(im, mask=im.split()[3])  # 3 is the alpha channel
+            im = background
 
-            w, h = im.width, im.height
-            # im.load() # required for png.split()
+        w, h = im.width, im.height
+        # im.load() # required for png.split()
 
-            max_wh = 750
-            max_width = max_wh if im.width >= im.height else max_wh * im.width / im.height
+        max_wh = 750
+        max_width = max_wh if im.width >= im.height else max_wh * im.width / im.height
 
-            # *** OCR DETECT
+        # *** OCR DETECT
 
-            ocr_horiz_dets, ocr_freeform_dets = self.reader.detect(
-                np.asarray(im),
-                canvas_size=max_width,  # For detection
-                # text_threshold=0.75,
-                add_margin=0.05,
-                # link_threshold=0.3
-                width_ths=0.1,
-                height_ths=0.5,
-                ycenter_ths=0.5,
-                min_size=15,
-            )
+        ocr_horiz_dets, ocr_freeform_dets = self.reader.detect(
+            np.asarray(im),
+            canvas_size=max_width,  # For detection
+            # text_threshold=0.75,
+            add_margin=0.05,
+            # link_threshold=0.3
+            width_ths=0.1,
+            height_ths=0.5,
+            ycenter_ths=0.5,
+            min_size=15,
+        )
 
-            boxes_cnt = len(ocr_horiz_dets[0]) + len(ocr_freeform_dets[0])
-            
-            # We don't count side boxes?
-            # for det in ocr_horiz_dets
-            
-            if boxes_cnt > self.max_bboxes or boxes_cnt == 0:
-                # print(boxes_cnt)
-                return
+        boxes_cnt = len(ocr_horiz_dets[0]) + len(ocr_freeform_dets[0])
 
-            # *** OCR RECOGNIZE
+        # We don't count side boxes?
+        # for det in ocr_horiz_dets
 
-            ocr_text = self.reader.recognize(
-                np.asarray(im),
-                horizontal_list=ocr_horiz_dets[0], 
-                free_list=ocr_freeform_dets[0],
-                # decoder='beamsearch',
-                decoder='greedy',
-                # batch_size=16,
-            )
-            im.close()
+        if boxes_cnt > self.max_bboxes or boxes_cnt == 0:
+            # print(boxes_cnt)
+            return
 
-            if not ocr_text:
-                # print('No OCR text')
-                return
+        # *** OCR RECOGNIZE
 
-            # *** OCR POSTPROCESS
+        ocr_text = self.reader.recognize(
+            np.asarray(im),
+            horizontal_list=ocr_horiz_dets[0],
+            free_list=ocr_freeform_dets[0],
+            # decoder='beamsearch',
+            decoder='greedy',
+            # batch_size=16,
+        )
+        im.close()
 
-            # ocr_tokens = list(zip(*ocr_text))[1]      
+        if not ocr_text:
+            # print('No OCR text')
+            return
 
-            # Filter by threshold
-            ocr_text = [item for item in ocr_text if item[2] > self.threshold]
-            if not ocr_text:
-                return
+        # *** OCR POSTPROCESS
 
-            ocr_text_rel = []
-            for (bbox, text, conf) in ocr_text:
-                x_s, y_s = tuple(zip(*bbox))
-                uni_bbox_rel = OCRReader.get_rel_bbox(x_s, y_s, w, h)
+        # ocr_tokens = list(zip(*ocr_text))[1]
 
-                # Remove small text
-                if OCRReader.area(uni_bbox_rel) / len(text) < 0.0001:
-                    # print('DEL: ', text)
-                    # conf *= 0.1
-                    continue
+        # Filter by threshold
+        ocr_text = [item for item in ocr_text if item[2] > self.threshold]
+        if not ocr_text:
+            return
 
-                # Remove text near edges of image
-                main_area = (0.05, 0.1, 0.95, 0.9)       
-                if OCRReader.int_area(main_area, uni_bbox_rel) < (OCRReader.area(uni_bbox_rel) * 0.5):
-                    # print('DEL NEAR EDGE:', text)
-                    continue
+        ocr_text_rel = []
+        for (bbox, text, conf) in ocr_text:
+            x_s, y_s = tuple(zip(*bbox))
+            uni_bbox_rel = OCRReader.get_rel_bbox(x_s, y_s, w, h)
 
-                # Remove strange symbols
-                text = text.strip('*-"\\,;~[](){}`^|_ :&@')
-                if text == '':
-                    # print('EMPTY TOKEN')
-                    continue
+            # Remove small text
+            if OCRReader.area(uni_bbox_rel) / len(text) < 0.0001:
+                # print('DEL: ', text)
+                # conf *= 0.1
+                continue
 
-                ocr_text_rel.append((uni_bbox_rel[:4], text, 0.0))
+            # Remove text near edges of image
+            main_area = (0.05, 0.1, 0.95, 0.9)
+            if OCRReader.int_area(main_area, uni_bbox_rel) < (OCRReader.area(uni_bbox_rel) * 0.5):
+                # print('DEL NEAR EDGE:', text)
+                continue
 
-            if not ocr_text_rel:
-                return
+            # Remove strange symbols
+            text = text.strip('*-"\\,;~[](){}`^|_ :&@')
+            if text == '':
+                # print('EMPTY TOKEN')
+                continue
 
-            ocr_boxes, ocr_tokens, ocr_confidence = list(zip(*ocr_text_rel))        
-            ocr_normalized_boxes = np.asarray(ocr_boxes, dtype=np.float32)
+            ocr_text_rel.append((uni_bbox_rel[:4], text, 0.0))
 
-            # print(ocr_tokens)
-            # ocr_normalized_boxes = np.asarray([normalize_bbox(t, (w, h)) for t in ocr_boxes], dtype=np.float32)
-            return {'im_size': (w, h), 'ocr_results': (ocr_tokens, ocr_normalized_boxes, ocr_confidence)}
+        if not ocr_text_rel:
+            return
+
+        ocr_boxes, ocr_tokens, ocr_confidence = list(zip(*ocr_text_rel))
+        ocr_normalized_boxes = np.asarray(ocr_boxes, dtype=np.float32)
+
+        # print(ocr_tokens)
+        # ocr_normalized_boxes = np.asarray([normalize_bbox(t, (w, h)) for t in ocr_boxes], dtype=np.float32)
+        return {'im_size': (w, h), 'ocr_results': (ocr_tokens, ocr_normalized_boxes, ocr_confidence)}
 
 
 class FeatureExtractor:
@@ -272,27 +272,25 @@ class FeatureExtractor:
         self, output, im_scales, im_infos, feature_name='fc6', conf_thresh=0.0
     ):
         batch_size = len(output[0]['proposals'])
-        #print(output[0])  # {'fc6', 'fc7', 'proposals', 'pooled', 'scores', 'bbox_deltas'}
-        out0, out1 = output  # RPN, ROI
 
-        fc6 = out0['fc6']  # 1000 x 2048
-        fc7 = out0['fc7']  # 1000 x 2048
-        pooled = out0['pooled']       # 1000 x 512x7x7
-        scores = out0['scores']       # 1000 x 1601
-        bbox_d = out0['bbox_deltas']  # 1000 x 6404
-        props = out0['proposals'][0]  # BoxList 1000 x 4
+        # print(output[0])  # {'fc6', 'fc7', 'proposals', 'pooled', 'scores', 'bbox_deltas'}
+        # out0, out1 = output  # RPN, ROI
+        # fc6 = out0['fc6']  # 1000 x 2048
+        # fc7 = out0['fc7']  # 1000 x 2048
+        # pooled = out0['pooled']       # 1000 x 512x7x7
+        # scores = out0['scores']       # 1000 x 1601
+        # bbox_d = out0['bbox_deltas']  # 1000 x 6404
+        # props = out0['proposals'][0]  # BoxList 1000 x 4
         # print(props.bbox.shape)
-
-        #print(output[1])  # [BoxList]
-        bbox_l = out1[0] # BoxList(num_boxes=100, im_w, im_h, mode)  [100 x 4]
-        #print(bbox_l.bbox.shape)
+        # print(output[1])  # [BoxList]
+        # bbox_l = out1[0]  # BoxList(num_boxes=100, im_w, im_h, mode)  [100 x 4]
 
         n_boxes_per_image = [len(boxes) for boxes in output[0]['proposals']]
-        #print(n_boxes_per_image) # rpn boxes
+        # print(n_boxes_per_image) # rpn boxes
         score_list = output[0]['scores'].split(n_boxes_per_image)  # rpn scores for 1 image
-        score_list = [torch.nn.functional.softmax(x, -1) for x in score_list]
-        feats = output[0][feature_name].split(n_boxes_per_image) # rpn features for 1 image  1000x2048???
-        cur_device = score_list[0].device
+        score_list = [F.softmax(x, -1) for x in score_list]
+        feats = output[0][feature_name].split(n_boxes_per_image)  # rpn features for 1 image  1000x2048
+        # cur_device = score_list[0].device
 
         feat_list = []
         info_list = []
@@ -300,12 +298,10 @@ class FeatureExtractor:
         for i in range(batch_size):
             dets = output[0]['proposals'][i].bbox / im_scales[i]   # Scaled bboxes for 1 image [1000x4]
             scores = score_list[i]  # softmaxed scores for 1 image for all classes [1000x1601]
-            max_conf = torch.zeros(scores.shape[0]).to(cur_device)  # 1000
-            conf_thresh_tensor = torch.full_like(max_conf, conf_thresh)
+            # max_conf = torch.zeros(scores.shape[0]).to(cur_device)  # 1000
+            # conf_thresh_tensor = torch.full_like(max_conf, conf_thresh)
             start_index = 1
 
-            t0 = time.time()
-                        
             obj_scores, obj_ids = torch.max(scores[:, start_index:], 1) 
             #                                  [N x 4]   [ N ]    [ N ]
             keep = torchvision.ops.batched_nms(dets, obj_scores, obj_ids, 0.5)
@@ -377,7 +373,7 @@ class FeatureExtractor:
         return feat_list
 
     def extract_features(self, filename):
-        im_filepath = filename #op.join(self.image_dir, filename)
+        im_filepath = filename  # op.join(self.image_dir, filename)
         features, infos = self.get_detectron_features([im_filepath])
         # self._save_feature(im_filepath, features[0], infos[0])
         return features[0].cpu().numpy(), infos[0]
@@ -474,9 +470,7 @@ def setup_pythia_imports():
 
     importlib.import_module("pythia.common.meter")
 
-    files = glob.glob(datasets_pattern, recursive=True) + \
-            glob.glob(model_pattern, recursive=True) + \
-            glob.glob(trainer_pattern, recursive=True)
+    files = glob.glob(datasets_pattern, recursive=True) + glob.glob(model_pattern, recursive=True) + glob.glob(trainer_pattern, recursive=True)
 
     for f in files:
         if f.find("models") != -1:
@@ -506,7 +500,7 @@ class MMFInstance:
     def __init__(self):
         setup_pythia_imports()
 
-        args = argparse.Namespace(
+        mmf_args = argparse.Namespace(
             batch_size=None, clip_gradients=None, 
             config='CNMT/configs/cnmt_rt.yml', config_override=None, 
             config_overwrite=None, data_parallel=None, datasets='m4c_textcaps', 
@@ -520,7 +514,7 @@ class MMFInstance:
             save_dir='../save/pred/', seed=None, should_not_log=False, 
             snapshot_interval=None, tasks='captioning', verbose_dump=None,
         )
-        self.args = args
+        self.args = mmf_args
         
         self.trainer = self.build_trainer()
         self.trainer.load()
@@ -566,10 +560,8 @@ def main():
     
     im_list = sorted(os.listdir(args.image_dir))
 
-    images_info = [{'date created': datetime.today().strftime('%Y-%m-%d')}]
-    
     gen_results = []
-    for im_filename in im_list:  #[:1]: #tqdm(im_list):
+    for im_filename in im_list:  # [:1]: #tqdm(im_list):
         im_filepath = op.join(args.image_dir, im_filename)
         
         # OCR DETECTION
@@ -579,29 +571,26 @@ def main():
         if args.with_ocr:
             ocr_results = ocr_reader.get_ocr_features(im_filepath)
         print(f" {'*' if ocr_results else ' '} ", end='')
-        print(f'OCR: {time.time() - t0:.3f}  ', end=''); t0 = time.time()
+        print(f'OCR: {time.time() - t0:.3f}  ', end='')
+        t0 = time.time()
 
         if ocr_results is None:
             # NO OCR FOUND
-            res_sentence = oscar_inst.inference(im_filepath) #'../../CNMT/images/COCO_val2014_000000000641.jpg')
+            # '../../CNMT/images/COCO_val2014_000000000641.jpg')
+            res_sentence = oscar_inst.inference(im_filepath)
         else:     
             img_info = feature_extractor.process_image_for_mmf(im_filepath, ocr_results)
-            print(f'Dtrn2: {time.time() - t0:.3f}  ', end=''); t0 = time.time()
+            print(f'Dtrn2: {time.time() - t0:.3f}  ', end='')
 
             # RUN MMF
             t0 = time.time()
             gen_result = mmf_inst.run(img_info)
-            print(f' MMF: {time.time() - t0:.3f}  ', end=''); t0 = time.time()
+            print(f' MMF: {time.time() - t0:.3f}  ', end='')
 
             # gen_result['image_id']
             caption = gen_result['caption'].split(' ')
             word_types = gen_result['pred_source']
 
-            res_words = [word.upper() if w_type == "OCR" else word for (word, w_type) in zip(caption, word_types)]
-            res_sentence = ' '.join(res_words)    
-            # print(word_types)
-
-            # RUN LANGUAGE TRANSLATION
             res_words = [f'"{word.upper()}"' if w_type == "OCR" else word for (word, w_type) in zip(caption, word_types)]
             res_sentence = ' '.join(res_words)    
 
@@ -617,19 +606,23 @@ def main():
         post_sentence = res_sentence.replace('a group of ', '').replace('a close up of ', '').replace('aurora ', 'aurora borealis ')
         post_sentence = post_sentence.replace('television ', 'tv ').replace('a couple of ', '').replace('sitting ', '')
         post_sentence = post_sentence.replace('sits ', ' ').replace('on it.', '.')
-        
+
         t0 = time.time()
         translated = nmt_inst.translate(post_sentence)
-        print(f'NMT: {time.time() - t0:.3f}  ', end=''); t0 = time.time()
+        print(f'NMT: {time.time() - t0:.3f}  ', end='')
 
         translated = translated.replace('" "', ' ')
         translated = translated[0].upper() + translated[1:]        
         res_sentence = res_sentence.replace('" "', ' ')
         res_sentence = res_sentence[0].upper() + res_sentence[1:]        
-        print((res_sentence + ' ' * 30)[:52], '', translated[:55])        
-        #print(ocr_results)
-        gen_results.append({'img_id': im_filename, 'caption': res_sentence, 'ocr_tokens': [] if ocr_results is None else ocr_results['ocr_results'][0], 'translated': translated})
-    
+        print((res_sentence + ' ' * 30)[:52], '', translated[:55])
+
+        gen_results.append({
+            'img_id': im_filename,
+            'caption': res_sentence,
+            'ocr_tokens': [] if ocr_results is None else ocr_results['ocr_results'][0],
+            'translated': translated,
+        })
 
     os.makedirs(args.save_dir, exist_ok=True)
     
