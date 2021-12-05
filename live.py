@@ -545,16 +545,46 @@ class MMFInstance:
         return result
 
 
+class ScenarioModel:
+    def __init__(self):
+        with open('../models/class_names.json') as f:
+            self.class_names = json.load(f)
+
+        model = torchvision.models.resnet50()
+        model.fc = torch.nn.Linear(in_features=model.fc.in_features, out_features=len(self.class_names))
+        model.load_state_dict(torch.load('../models/scen_cls.pth'))
+        model.eval()
+        self.model = model
+
+        self.transform = torchvision.transforms.Compose([
+            torchvision.transforms.Resize((224, 224)),
+            torchvision.transforms.ToTensor(),
+            torchvision.transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        ])
+
+    def run(self, im_filepath, topk=1):
+        im = Image.open(im_filepath)
+        im_tensor = self.transform(im)
+        with torch.no_grad():
+            with torch.cuda.amp.autocast():
+                logits = self.model(im_tensor.unsqueeze(0))
+        _, cls_ids = torch.topk(logits, topk)
+        preds_topk = [self.class_names[str(c.item())] for c in cls_ids[0]]
+        return preds_topk
+
+
 def main():
-    print('Load 1/5')
+    print('Load 1/6')
+    scen_model = ScenarioModel()
+    print('Load 2/6')
     ocr_reader = OCRReader(args.ocr_thresh, args.bbox_thresh) if args.with_ocr else None
-    print('Load 2/5')
+    print('Load 3/6')
     feature_extractor = FeatureExtractor(args.image_dir) if args.with_ocr else None
-    print('Load 3/5')
+    print('Load 4/6')
     mmf_inst = MMFInstance() if args.with_ocr else None
-    print('Load 4/5')
+    print('Load 5/6')
     oscar_inst = OscarLive()
-    print('Load 5/5')
+    print('Load 6/6')
     nmt_inst = NMT(lang=args.lang) if args.translate else None
     print('Predicting')
     
@@ -564,6 +594,10 @@ def main():
     for im_filename in im_list:  # [:1]: #tqdm(im_list):
         im_filepath = op.join(args.image_dir, im_filename)
         
+        # SCENE CLASSIFYING
+
+        scenario = scen_model.run(im_filepath)
+
         # OCR DETECTION
         
         t0 = time.time()
@@ -598,7 +632,12 @@ def main():
             res_sentence = res_sentence.replace('" "', ' ')
             res_sentence = res_sentence[0].upper() + res_sentence[1:]        
             print((res_sentence + ' ' * 100)[:100])
-            gen_results.append({'img_id': im_filename, 'caption': res_sentence, 'translated': ''})
+            gen_results.append({
+                'img_id': im_filename,
+                'scenario': scenario[0] if len(scenario) == 1 else scenario,
+                'caption': res_sentence,
+                'translated': ''
+            })
             continue
             
         # else TRANSLATE NMT
@@ -619,6 +658,7 @@ def main():
 
         gen_results.append({
             'img_id': im_filename,
+            'scenario': scenario[0] if len(scenario) == 1 else scenario,
             'caption': res_sentence,
             'ocr_tokens': [] if ocr_results is None else ocr_results['ocr_results'][0],
             'translated': translated,
@@ -632,6 +672,7 @@ def main():
     with open(op.join(args.save_dir, 'preds.json'), 'w') as f:
         json.dump({'annotations': gen_results}, f, ensure_ascii=False)
 
+    print('Predictions saved to: ', args.save_dir)
     print('Done.')
 
     
