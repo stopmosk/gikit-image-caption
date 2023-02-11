@@ -1,23 +1,25 @@
 #!/bin/bash
 
+set -euo pipefail
+
 CUR_DIR=$PWD
 
-sudo apt update && sudo apt install unzip aria2 ffmpeg libsm6 libxext6 &&
+sudo apt update && sudo apt install unzip aria2 ffmpeg libsm6 libxext6
 
-pip install gdown && 
-cd .. && mkdir -p models && cd models &&
+pip install gdown
+cd .. && mkdir -p models && cd models
 
 if [ ! -f ./models.zip ]; then
     gdown https://drive.google.com/uc?id=1_PqHZkeGc1zEsgqU63uIcIJ8o2Q5qoEu
-fi &&
+fi
 
-unzip models.zip &&
+unzip models.zip
 
 if [ ! -f ./wiki.en.zip ]; then
     aria2c -x 16 -s 16 -d ./ https://dl.fbaipublicfiles.com/fasttext/vectors-wiki/wiki.en.zip
-fi &&
+fi
 
-unzip wiki.en.zip && cd $CUR_DIR &&
+unzip wiki.en.zip && cd $CUR_DIR
 
 cp -a ../models/cnmt_data/. CNMT/data
 
