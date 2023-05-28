@@ -1,9 +1,9 @@
-### OLD README
+### Live Image Caption with VinVL (Oscar) and CNMT + EasyOCR
 
 # Clone repo
 ```bash
-git clone https://github.com/servacc/HuaweiImageCaptionCode.git
-cd HuaweiImageCaptionCode
+git clone https://github.com/stopmosk/gikit-image-caption.git
+cd gikit-image-caption
 ```
 
 # Run install scripts from repo folder
